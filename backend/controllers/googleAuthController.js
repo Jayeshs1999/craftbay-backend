@@ -1,17 +1,15 @@
-import generateToken from "../utils/generateToken.js";
+import { generateTokenString } from "../utils/generateToken.js";
 
 // Called after Passport successfully authenticates with Google.
-// Sets the JWT cookie and redirects back to the frontend.
+// We cannot set an httpOnly cookie and redirect cross-origin reliably —
+// the browser drops Set-Cookie headers on cross-domain redirects.
+// Instead, pass a short-lived token in the URL; the frontend /auth/callback
+// page exchanges it for a proper httpOnly cookie via a same-origin POST.
 export const googleCallback = (req, res) => {
   const user = req.user;
-
-  // Read at request time so the env var is always resolved,
-  // even if the module was first evaluated before dotenv ran.
   const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
 
-  generateToken(res, user._id);
+  const token = generateTokenString(user._id);
 
-  // Redirect to the appropriate dashboard
-  const dest = user.isSeller ? "/seller" : "/dashboard";
-  res.redirect(`${frontendURL}${dest}`);
+  res.redirect(`${frontendURL}/auth/callback?token=${token}`);
 };

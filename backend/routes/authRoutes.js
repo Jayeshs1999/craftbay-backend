@@ -3,6 +3,7 @@ import passport from "passport";
 import {
   registerUser, loginUser, logoutUser, getMe,
   becomeSeller, updateProfile, addAddress, deleteAddress,
+  verifyToken,
 } from "../controllers/authController.js";
 import { googleCallback } from "../controllers/googleAuthController.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -11,6 +12,7 @@ const router = express.Router();
 
 router.post("/register",        registerUser);
 router.post("/login",           loginUser);
+router.post("/verify-token",    verifyToken);
 router.post("/logout",          protect, logoutUser);
 router.get("/me",               protect, getMe);
 router.put("/become-seller",    protect, becomeSeller);

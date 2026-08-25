@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken";
 import asyncHandler from "../middleware/asyncHandler.js";
 import User from "../models/userModel.js";
 import generateToken from "../utils/generateToken.js";
@@ -141,4 +142,45 @@ export const deleteAddress = asyncHandler(async (req, res) => {
   user.addresses = user.addresses.filter((a) => a._id.toString() !== req.params.id);
   await user.save();
   res.json(user.addresses);
+});
+
+// @desc  Exchange a URL token (from Google OAuth redirect) for an httpOnly cookie
+// @route POST /api/auth/verify-token
+// @access Public
+export const verifyToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+
+  if (!token) {
+    res.status(400);
+    throw new Error("Token is required");
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    res.status(401);
+    throw new Error("Invalid or expired token");
+  }
+
+  const user = await User.findById(decoded.userId).select("-password");
+  if (!user || !user.isActive) {
+    res.status(401);
+    throw new Error("User not found");
+  }
+
+  // Issue a fresh httpOnly cookie (same-origin — this request comes from
+  // the frontend domain, so the cookie will be stored correctly).
+  generateToken(res, user._id);
+
+  res.json({
+    _id:      user._id,
+    name:     user.name,
+    email:    user.email,
+    phone:    user.phone,
+    avatar:   user.avatar,
+    role:     user.role,
+    isSeller: user.isSeller,
+    sellerProfile: user.sellerProfile,
+  });
 });
