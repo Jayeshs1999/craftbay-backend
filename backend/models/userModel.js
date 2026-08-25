@@ -22,7 +22,8 @@ const userSchema = new mongoose.Schema(
     name:       { type: String, required: true, trim: true },
     email:      { type: String, required: true, unique: true, lowercase: true },
     phone:      { type: String, unique: true, sparse: true },
-    password:   { type: String, required: true },
+    googleId:   { type: String, unique: true, sparse: true },
+    password:   { type: String },
     avatar:     { type: String, default: "" },
     role:       { type: String, enum: ["buyer", "seller", "admin"], default: "buyer" },
     isSeller:   { type: Boolean, default: false },
@@ -47,15 +48,16 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Hash password before save
+// Hash password before save (only when password is set/changed)
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.password || !this.isModified("password")) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
 userSchema.methods.matchPassword = async function (entered) {
+  if (!this.password) return false;
   return bcrypt.compare(entered, this.password);
 };
 

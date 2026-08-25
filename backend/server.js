@@ -1,16 +1,24 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import express from "express";
-import cors from "cors";
-import cookieParser from "cookie-parser";
-import connectDB from "./config/db.js";
-import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
-import authRoutes     from "./routes/authRoutes.js";
-import productRoutes  from "./routes/productRoutes.js";
-import orderRoutes    from "./routes/orderRoutes.js";
-import deliveryRoutes from "./routes/deliveryRoutes.js";
-import wishlistRoutes from "./routes/wishlistRoutes.js";
+// NOTE: All subsequent imports must come AFTER dotenv.config() has run.
+// In ESM, static imports are hoisted, so dotenv must be the very first module
+// evaluated. We achieve this by putting dotenv in its own entry shim, or by
+// using a dynamic import. Here we use a dynamic import wrapper so that
+// passport (which reads GOOGLE_CLIENT_ID at evaluation time) only loads after
+// the env vars are populated.
+
+const { default: express }       = await import("express");
+const { default: cors }          = await import("cors");
+const { default: cookieParser }  = await import("cookie-parser");
+const { default: connectDB }     = await import("./config/db.js");
+const { errorHandler, notFound } = await import("./middleware/errorMiddleware.js");
+await import("./config/passport.js");   // registers the Google strategy
+const { default: authRoutes }     = await import("./routes/authRoutes.js");
+const { default: productRoutes }  = await import("./routes/productRoutes.js");
+const { default: orderRoutes }    = await import("./routes/orderRoutes.js");
+const { default: deliveryRoutes } = await import("./routes/deliveryRoutes.js");
+const { default: wishlistRoutes } = await import("./routes/wishlistRoutes.js");
 
 const port = process.env.PORT || 5000;
 
