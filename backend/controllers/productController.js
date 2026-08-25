@@ -3,7 +3,7 @@ import Product from "../models/productModel.js";
 import { cloudinary } from "../config/cloudinary.js";
 
 // -----------------------------------------------------------------------------
-// PUBLIC — no auth required
+// PUBLIC ï¿½ no auth required
 // -----------------------------------------------------------------------------
 
 // @desc  List products (search, filter, sort, paginate)
@@ -17,7 +17,17 @@ export const getProducts = asyncHandler(async (req, res) => {
   const filter   = { isActive: true, isApproved: true };
 
   if (req.query.q) {
-    filter.$text = { $search: req.query.q };
+    const term = req.query.q.trim();
+    if (term) {
+      const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [
+        { name: regex },
+        { description: regex },
+        { shortDesc: regex },
+        { category: regex },
+        { tags: regex },
+      ];
+    }
   }
   if (req.query.category)    filter.category    = req.query.category;
   if (req.query.subCategory) filter.subCategory = req.query.subCategory;
@@ -102,7 +112,7 @@ export const addReview = asyncHandler(async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// SELLER — auth + isSeller required
+// SELLER ï¿½ auth + isSeller required
 // -----------------------------------------------------------------------------
 
 // @desc  Create a product
