@@ -14,8 +14,13 @@ const errorHandler = (err, req, res, next) => {
     return res.status(400).json({ message: "Duplicate field value" });
   }
 
+  // Multer errors (file too large, wrong type, etc.)
+  if (err.name === "MulterError") {
+    return res.status(400).json({ message: err.message });
+  }
+
   res.status(statusCode).json({
-    message: err.message,
+    message: err.message || "Something went wrong",
     stack: process.env.NODE_ENV === "production" ? null : err.stack,
   });
 };

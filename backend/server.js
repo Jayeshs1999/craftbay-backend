@@ -1,5 +1,7 @@
-import express from "express";
 import dotenv from "dotenv";
+dotenv.config();
+
+import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
@@ -10,7 +12,6 @@ import orderRoutes    from "./routes/orderRoutes.js";
 import deliveryRoutes from "./routes/deliveryRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoutes.js";
 
-dotenv.config();
 const port = process.env.PORT || 5000;
 
 connectDB();
@@ -31,10 +32,8 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
-// Health check
 app.get("/", (req, res) => res.send("CraftBay API is running"));
 
-// API routes
 app.use("/api/auth",     authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders",   orderRoutes);
