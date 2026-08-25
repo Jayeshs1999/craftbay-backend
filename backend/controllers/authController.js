@@ -20,15 +20,16 @@ export const registerUser = asyncHandler(async (req, res) => {
     throw new Error("Email already registered");
   }
 
-  const user = await User.create({ name, email, password, phone });
-  generateToken(res, user._id, "user");
+  const user  = await User.create({ name, email, password, phone });
+  const token = generateToken(res, user._id);
 
   res.status(201).json({
-    _id:     user._id,
-    name:    user.name,
-    email:   user.email,
-    role:    user.role,
+    _id:      user._id,
+    name:     user.name,
+    email:    user.email,
+    role:     user.role,
     isSeller: user.isSeller,
+    token,
   });
 });
 
@@ -48,17 +49,18 @@ export const loginUser = asyncHandler(async (req, res) => {
     throw new Error("Account suspended");
   }
 
-  generateToken(res, user._id, "user");
+  const token = generateToken(res, user._id);
 
   res.json({
-    _id:     user._id,
-    name:    user.name,
-    email:   user.email,
-    phone:   user.phone,
-    avatar:  user.avatar,
-    role:    user.role,
+    _id:      user._id,
+    name:     user.name,
+    email:    user.email,
+    phone:    user.phone,
+    avatar:   user.avatar,
+    role:     user.role,
     isSeller: user.isSeller,
     sellerProfile: user.sellerProfile,
+    token,
   });
 });
 
