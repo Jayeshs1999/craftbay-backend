@@ -3,6 +3,12 @@ import Order from "../models/orderModel.js";
 import Product from "../models/productModel.js";
 import User from "../models/userModel.js";
 import { calcShipping, calcPlatformFee } from "../utils/deliveryHelper.js";
+import { sendMail } from "../utils/mailer.js";
+import {
+  orderPlacedBuyerEmail,
+  newOrderSellerEmail,
+  orderStatusEmail,
+} from "../utils/emailTemplates.js";
 
 // --- Helper: validate & price cart ------------------------------------------
 async function buildOrderItems(cartItems) {
@@ -26,7 +32,7 @@ async function buildOrderItems(cartItems) {
   return items;
 }
 
-// @desc  Calculate order quote (shipping + fees) � no DB write
+// @desc  Calculate order quote (shipping + fees) � no DB write
 // @route POST /api/orders/quote
 // @access Private
 export const getOrderQuote = asyncHandler(async (req, res) => {
@@ -113,6 +119,33 @@ export const createOrder = asyncHandler(async (req, res) => {
     await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
   }
 
+  // ── Emails (fire-and-forget) ──────────────────────────────────────────────
+  // Populate buyer email for notifications
+  const buyerDoc = await User.findById(req.user._id).select("name email");
+
+  // 1. Confirmation to buyer
+  if (buyerDoc?.email) {
+    const { subject, html } = orderPlacedBuyerEmail({
+      name:  buyerDoc.name,
+      order: { ...order.toObject(), buyer: buyerDoc },
+    });
+    sendMail({ to: buyerDoc.email, subject, html });
+  }
+
+  // 2. New-order alert to each unique seller
+  const sellerIds = [...new Set(cleanItems.map((i) => i.seller.toString()))];
+  for (const sellerId of sellerIds) {
+    const sellerDoc = await User.findById(sellerId).select("name email sellerProfile");
+    if (sellerDoc?.email) {
+      const { subject, html } = newOrderSellerEmail({
+        sellerName: sellerDoc.name,
+        shopName:   sellerDoc.sellerProfile?.shopName || sellerDoc.name,
+        order:      { ...order.toObject(), buyer: buyerDoc },
+      });
+      sendMail({ to: sellerDoc.email, subject, html });
+    }
+  }
+
   res.status(201).json(order);
 });
 
@@ -168,6 +201,19 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   if (status === "delivered") order.paymentStatus = "paid";
 
   await order.save();
+
+  // ── Email buyer about the status change (fire-and-forget) ─────────────────
+  const buyerDoc = await User.findById(order.buyer).select("name email");
+  if (buyerDoc?.email) {
+    const { subject, html } = orderStatusEmail({
+      name:      buyerDoc.name,
+      order,
+      newStatus: status,
+      note,
+    });
+    sendMail({ to: buyerDoc.email, subject, html });
+  }
+
   res.json(order);
 });
 

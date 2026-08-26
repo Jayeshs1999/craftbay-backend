@@ -2,6 +2,8 @@ import jwt from "jsonwebtoken";
 import asyncHandler from "../middleware/asyncHandler.js";
 import User from "../models/userModel.js";
 import generateToken from "../utils/generateToken.js";
+import { sendMail } from "../utils/mailer.js";
+import { welcomeEmail, sellerActivatedEmail } from "../utils/emailTemplates.js";
 
 // @desc  Register a new user
 // @route POST /api/auth/register
@@ -22,6 +24,10 @@ export const registerUser = asyncHandler(async (req, res) => {
 
   const user  = await User.create({ name, email, password, phone });
   const token = generateToken(res, user._id);
+
+  // Send welcome email (fire-and-forget — don't await)
+  const { subject, html } = welcomeEmail({ name: user.name });
+  sendMail({ to: user.email, subject, html });
 
   res.status(201).json({
     _id:      user._id,
@@ -97,6 +103,10 @@ export const becomeSeller = asyncHandler(async (req, res) => {
   user.role     = "seller";
   user.sellerProfile = { shopName, shopDesc, shopCity, shopState, pickupPincode };
   await user.save();
+
+  // Notify the new seller
+  const { subject, html } = sellerActivatedEmail({ name: user.name, shopName });
+  sendMail({ to: user.email, subject, html });
 
   res.json({ message: "Seller account activated", sellerProfile: user.sellerProfile });
 });
