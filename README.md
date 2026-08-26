@@ -1,6 +1,6 @@
-# CraftBay Backend
+# Banavoo.in Backend
 
-Express + MongoDB REST API for the CraftBay handmade marketplace.
+Express + MongoDB REST API for the Banavoo.in handmade marketplace.
 
 ## Stack
 - Node.js 18+ (ESM)
@@ -13,7 +13,7 @@ Express + MongoDB REST API for the CraftBay handmade marketplace.
 
 ## Setup
 
-1. `cp example.env .env` — fill in all values
+1. `cp example.env .env` ï¿½ fill in all values
 2. `npm install`
 3. `npm run dev`
 
@@ -41,8 +41,8 @@ Express + MongoDB REST API for the CraftBay handmade marketplace.
 ## Delivery Logic
 
 Three modes supported:
-- **platform** — CraftBay arranges courier pickup (?40 local / ?60 regional / ?80+ national; free on orders = ?999)
-- **self_ship** — Seller ships independently
-- **pickup** — Buyer collects from seller (free)
+- **platform** ï¿½Banavoo.iny arranges courier pickup (?40 local / ?60 regional / ?80+ national; free on orders = ?999)
+- **self_ship** ï¿½ Seller ships independently
+- **pickup** ï¿½ Buyer collects from seller (free)
 
 Platform fee: 2% of order value (min ?2, max ?50)

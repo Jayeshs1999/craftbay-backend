@@ -40,7 +40,7 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
-app.get("/", (req, res) => res.send("CraftBay API is running"));
+app.get("/", (req, res) => res.send("Banavoo.in API is running"));
 
 app.use("/api/auth",     authRoutes);
 app.use("/api/products", productRoutes);

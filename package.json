@@ -1,7 +1,7 @@
 {
     "name": "craftbay-backend",
     "version": "1.0.0",
-    "description": "CraftBay - Handmade marketplace API",
+    "description": "Banavoo.in - Handmade marketplace API",
     "type": "module",
     "main": "backend/server.js",
     "scripts": {
