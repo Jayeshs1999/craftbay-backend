@@ -54,9 +54,8 @@ export function calcShipping({ fromState, toState, fromCity, toCity, weightGrams
 }
 
 /**
- * Platform fee: 2% of order value (min ?2, max ?50).
+ * Platform fee: currently 0 — free for all users and sellers.
  */
-export function calcPlatformFee(orderTotal) {
-  const fee = orderTotal * 0.02;
-  return Math.min(Math.max(fee, 2), 50);
+export function calcPlatformFee(_orderTotal) {
+  return 0;
 }
