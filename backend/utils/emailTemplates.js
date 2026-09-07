@@ -348,3 +348,23 @@ export function adminNudgeSellerEmail({ sellerName, shopName, order, adminNote }
     ),
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. EMAIL OTP VERIFICATION — sent during registration
+// ─────────────────────────────────────────────────────────────────────────────
+export function otpEmail({ name, otp }) {
+  return {
+    subject: `${otp} is your ${BRAND} verification code`,
+    html: layout("Email Verification",
+      h2(`Verify your email 📬`) +
+      p(`Hi <strong>${name}</strong>, enter the code below to complete your ${BRAND} registration. It expires in <strong>10 minutes</strong>.`) +
+      `<div style="text-align:center;margin:28px 0;">
+        <div style="display:inline-block;background:#f0fdf4;border:2px dashed #6ee7b7;border-radius:14px;padding:18px 40px;">
+          <span style="font-size:36px;font-weight:800;letter-spacing:10px;color:#059669;font-family:monospace;">${otp}</span>
+        </div>
+      </div>` +
+      p(`If you did not create an account, you can safely ignore this email.`) +
+      `<p style="margin:0;font-size:12px;color:#9ca3af;">This code is valid for 10 minutes and can only be used once.</p>`
+    ),
+  };
+}

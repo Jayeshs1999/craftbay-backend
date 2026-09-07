@@ -1,9 +1,19 @@
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import asyncHandler from "../middleware/asyncHandler.js";
 import User from "../models/userModel.js";
 import generateToken from "../utils/generateToken.js";
 import { sendMail } from "../utils/mailer.js";
-import { welcomeEmail, sellerActivatedEmail } from "../utils/emailTemplates.js";
+import { welcomeEmail, sellerActivatedEmail, otpEmail } from "../utils/emailTemplates.js";
+
+// ─── In-process OTP store ─────────────────────────────────────────────────────
+// Keyed by lower-cased email. Each entry: { name, phone, passwordHash, otpHash, expiresAt }
+// Cleared on verification or expiry. No DB model needed.
+const otpStore = new Map();
+
+function generateOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000)); // 6-digit
+}
 
 // @desc  Register a new user
 // @route POST /api/auth/register
@@ -194,5 +204,111 @@ export const verifyToken = asyncHandler(async (req, res) => {
     role:     user.role,
     isSeller: user.isSeller,
     sellerProfile: user.sellerProfile,
+  });
+});
+
+// @desc  Step 1 — validate fields, send OTP to email
+// @route POST /api/auth/send-otp
+// @access Public
+export const sendOtp = asyncHandler(async (req, res) => {
+  const { name, email, password, phone } = req.body;
+
+  if (!name || !email || !password) {
+    res.status(400);
+    throw new Error("Please provide name, email and password");
+  }
+
+  const key = email.toLowerCase();
+
+  // Block if email is already a registered account
+  const exists = await User.findOne({ email: key });
+  if (exists) {
+    res.status(400);
+    throw new Error("Email already registered");
+  }
+
+  // Hash the password now so we don't store it plain in memory
+  const salt         = await bcrypt.genSalt(10);
+  const passwordHash = await bcrypt.hash(password, salt);
+
+  const otp       = generateOtp();
+  const salt2     = await bcrypt.genSalt(10);
+  const otpHash   = await bcrypt.hash(otp, salt2);
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+  otpStore.set(key, { name, phone: phone || null, passwordHash, otpHash, expiresAt });
+
+  const { subject, html } = otpEmail({ name, otp });
+  sendMail({ to: email, subject, html });
+
+  res.json({ message: "OTP sent", email: key });
+});
+
+// @desc  Step 2 — verify OTP and create the user
+// @route POST /api/auth/verify-otp
+// @access Public
+export const verifyOtp = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    res.status(400);
+    throw new Error("Email and OTP are required");
+  }
+
+  const key    = email.toLowerCase();
+  const record = otpStore.get(key);
+
+  if (!record) {
+    res.status(400);
+    throw new Error("OTP not found or already used. Please restart registration.");
+  }
+
+  if (Date.now() > record.expiresAt) {
+    otpStore.delete(key);
+    res.status(400);
+    throw new Error("OTP has expired. Please restart registration.");
+  }
+
+  const otpMatch = await bcrypt.compare(String(otp), record.otpHash);
+  if (!otpMatch) {
+    res.status(400);
+    throw new Error("Incorrect OTP. Please try again.");
+  }
+
+  // OTP valid — consume it immediately (one-time use)
+  otpStore.delete(key);
+
+  // Double-check no account was created in the meantime
+  const exists = await User.findOne({ email: key });
+  if (exists) {
+    res.status(400);
+    throw new Error("Email already registered");
+  }
+
+  // Create the user with the pre-hashed password.
+  // Set _skipPasswordHash so the pre-save hook doesn't re-hash the already-hashed value.
+  const user = new User({
+    name:     record.name,
+    email:    key,
+    phone:    record.phone,
+    password: record.passwordHash,
+  });
+  user._skipPasswordHash = true;
+  await user.save();
+
+  const token = generateToken(res, user._id);
+
+  const { subject, html } = welcomeEmail({ name: user.name });
+  sendMail({ to: user.email, subject, html });
+
+  res.status(201).json({
+    _id:      user._id,
+    name:     user.name,
+    email:    user.email,
+    phone:    user.phone,
+    avatar:   user.avatar,
+    role:     user.role,
+    isSeller: user.isSeller,
+    token,
   });
 });
