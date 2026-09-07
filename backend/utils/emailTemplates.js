@@ -173,8 +173,22 @@ export function sellerActivatedEmail({ name, shopName }) {
 // 3. ORDER PLACED — to buyer
 // ─────────────────────────────────────────────────────────────────────────────
 export function orderPlacedBuyerEmail({ name, order }) {
+  const isPickup = order.deliveryMode === "pickup";
   const addr = order.shippingAddress;
-  const eta  = order.estimatedDelivery ? fmtDate(order.estimatedDelivery) : "5–7 business days";
+  const eta  = order.estimatedDelivery ? fmtDate(order.estimatedDelivery) : (isPickup ? "Arrange with seller" : "5–7 business days");
+
+  const deliveryBlock = isPickup
+    ? `<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#065f46;text-transform:uppercase;">📍 Local Pickup</p>
+        <p style="margin:0;font-size:14px;color:#065f46;">
+          The seller will contact <strong>${addr.phone}</strong> to arrange your pickup time and location.<br/>
+          Please pay the seller directly when you collect your order.
+        </p>
+      </div>`
+    : `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Delivery Address</p>
+        <p style="margin:0;font-size:14px;color:#374151;">${addr.fullName} · ${addr.phone}<br/>${fmtAddr(addr)}</p>
+      </div>`;
 
   return {
     subject: `Order confirmed #${order._id.toString().slice(-8).toUpperCase()} — ${BRAND}`,
@@ -184,8 +198,9 @@ export function orderPlacedBuyerEmail({ name, order }) {
       infoTable(
         infoRow("Order ID",     `#${order._id.toString().slice(-8).toUpperCase()}`) +
         infoRow("Date",         fmtDate(order.createdAt || new Date())) +
-        infoRow("Payment",      order.paymentMethod?.toUpperCase()) +
-        infoRow("Est. Delivery", eta)
+        infoRow("Delivery",     isPickup ? "Local Pickup — Free" : "Seller Ships") +
+        infoRow("Payment",      isPickup ? "Pay at Pickup" : order.paymentMethod?.toUpperCase()) +
+        infoRow(isPickup ? "Pickup" : "Est. Delivery", eta)
       ) +
       itemsBlock(order.items) +
       infoTable(
@@ -195,10 +210,7 @@ export function orderPlacedBuyerEmail({ name, order }) {
         (order.discount > 0      ? infoRow("Discount",  `-Rs.${order.discount?.toLocaleString("en-IN")}`) : "") +
         infoRow("Grand Total",   `<span style="font-size:16px;color:${ACCENT};">Rs.${order.totalAmount?.toLocaleString("en-IN")}</span>`)
       ) +
-      `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
-        <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Delivery Address</p>
-        <p style="margin:0;font-size:14px;color:#374151;">${addr.fullName} · ${addr.phone}<br/>${fmtAddr(addr)}</p>
-      </div>` +
+      deliveryBlock +
       `<div style="text-align:center;">` + btn("View Order", `${FRONTEND}/dashboard`) + `</div>`
     ),
   };
@@ -208,26 +220,40 @@ export function orderPlacedBuyerEmail({ name, order }) {
 // 4. NEW ORDER ALERT — to seller
 // ─────────────────────────────────────────────────────────────────────────────
 export function newOrderSellerEmail({ sellerName, shopName, order }) {
+  const isPickup = order.deliveryMode === "pickup";
   const buyer = order.buyer;
   const addr  = order.shippingAddress;
 
-  return {
-    subject: `New order received #${order._id.toString().slice(-8).toUpperCase()} — ${shopName}`,
-    html: layout("New Order Received",
-      h2(`You have a new order! 🛍️`) +
-      p(`Hi <strong>${sellerName}</strong>, someone just placed an order in your shop <strong>${shopName}</strong>. Please confirm and process it within 24 hours.`) +
-      infoTable(
-        infoRow("Order ID", `#${order._id.toString().slice(-8).toUpperCase()}`) +
-        infoRow("Date",     fmtDate(order.createdAt || new Date())) +
-        infoRow("Payment",  order.paymentMethod?.toUpperCase()) +
-        infoRow("Total",    `Rs.${order.totalAmount?.toLocaleString("en-IN")}`)
-      ) +
-      itemsBlock(order.items) +
-      `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+  const buyerContactBlock = isPickup
+    ? `<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#065f46;text-transform:uppercase;">📍 Local Pickup Order</p>
+        <p style="margin:0 0 6px;font-size:14px;color:#065f46;">
+          The buyer will <strong>pick up</strong> directly from your location. Please contact them to arrange a time.
+        </p>
+        <p style="margin:0;font-size:14px;color:#374151;">
+          <strong>${buyer?.name || addr.fullName}</strong>${addr.phone ? ` · <a href="tel:${addr.phone}" style="color:${ACCENT};">${addr.phone}</a>` : ""}
+        </p>
+      </div>`
+    : `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
         <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Buyer &amp; Delivery Info</p>
         <p style="margin:0 0 4px;font-size:14px;color:#374151;"><strong>${buyer?.name || addr.fullName}</strong>${buyer?.phone ? ` · ${buyer.phone}` : ""}</p>
         <p style="margin:0;font-size:14px;color:#6b7280;">${addr.fullName} · ${addr.phone}<br/>${fmtAddr(addr)}</p>
-      </div>` +
+      </div>`;
+
+  return {
+    subject: `New ${isPickup ? "pickup " : ""}order received #${order._id.toString().slice(-8).toUpperCase()} — ${shopName}`,
+    html: layout("New Order Received",
+      h2(`You have a new order! 🛍️`) +
+      p(`Hi <strong>${sellerName}</strong>, someone just placed an order in your shop <strong>${shopName}</strong>.${isPickup ? " This is a <strong>Local Pickup</strong> order — contact the buyer to arrange collection." : " Please confirm and process it within 24 hours."}`) +
+      infoTable(
+        infoRow("Order ID", `#${order._id.toString().slice(-8).toUpperCase()}`) +
+        infoRow("Date",     fmtDate(order.createdAt || new Date())) +
+        infoRow("Delivery", isPickup ? "Local Pickup — Free" : "Seller Ships") +
+        infoRow("Payment",  isPickup ? "Buyer pays at pickup" : order.paymentMethod?.toUpperCase()) +
+        infoRow("Total",    `Rs.${order.totalAmount?.toLocaleString("en-IN")}`)
+      ) +
+      itemsBlock(order.items) +
+      buyerContactBlock +
       `<div style="text-align:center;">` + btn("Manage Order", `${FRONTEND}/seller`) + `</div>`
     ),
   };

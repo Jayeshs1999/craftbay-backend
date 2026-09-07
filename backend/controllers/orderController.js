@@ -41,9 +41,15 @@ export const getOrderQuote = asyncHandler(async (req, res) => {
   const items      = await buildOrderItems(cartItems);
   const itemsTotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
 
+  // Local Pickup: no shipping charge, no COD surcharge — buyer pays at collection
+  if (deliveryMode === "pickup") {
+    const platformFee = calcPlatformFee(itemsTotal);
+    return res.json({ itemsTotal, shippingCharge: 0, platformFee, totalAmount: itemsTotal + platformFee, deliveryMode });
+  }
+
   let shippingCharge = 0;
   if (deliveryMode === "platform") {
-    // Use first seller location as origin (multi-seller ? use max charge)
+    // Use first seller location as origin (multi-seller — use max charge)
     let maxCharge = 0;
     for (const item of items) {
       const { charge } = calcShipping({
@@ -77,7 +83,12 @@ export const createOrder = asyncHandler(async (req, res) => {
   const itemsTotal = rawItems.reduce((s, i) => s + i.price * i.quantity, 0);
 
   let shippingCharge = 0, etaDays = 5;
-  if (deliveryMode === "platform") {
+
+  if (deliveryMode === "pickup") {
+    // Local Pickup: zero shipping, zero COD surcharge, no estimated delivery date
+    shippingCharge = 0;
+    etaDays        = 0;
+  } else if (deliveryMode === "platform") {
     let maxCharge = 0, maxEta = 0;
     for (const item of rawItems) {
       const { charge, etaDays: eta } = calcShipping({
@@ -101,8 +112,8 @@ export const createOrder = asyncHandler(async (req, res) => {
   // Strip internal helper fields before storing
   const cleanItems = rawItems.map(({ _sellerCity, _sellerState, ...rest }) => rest);
 
-  const estimatedDelivery = new Date();
-  estimatedDelivery.setDate(estimatedDelivery.getDate() + etaDays);
+  // For pickup orders etaDays=0 means buyer collects — no estimated delivery date stored
+  const estimatedDelivery = etaDays > 0 ? new Date(Date.now() + etaDays * 86_400_000) : undefined;
 
   const order = await Order.create({
     buyer: req.user._id,
@@ -111,7 +122,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     itemsTotal, shippingCharge, platformFee,
     totalAmount, deliveryMode, paymentMethod,
     estimatedDelivery, notes,
-    statusHistory: [{ status: "pending", note: "Order placed", updatedBy: "system" }],
+    statusHistory: [{ status: "pending", note: deliveryMode === "pickup" ? "Order placed — awaiting pickup arrangement" : "Order placed", updatedBy: "system" }],
   });
 
   // Decrement stock
