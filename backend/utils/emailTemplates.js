@@ -309,3 +309,42 @@ export function orderStatusEmail({ name, order, newStatus, note }) {
     ),
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. ADMIN NUDGE — reminder to seller from super admin
+// ─────────────────────────────────────────────────────────────────────────────
+export function adminNudgeSellerEmail({ sellerName, shopName, order, adminNote }) {
+  const isPickup = order.deliveryMode === "pickup";
+  const buyer    = order.buyer;
+  const addr     = order.shippingAddress;
+
+  return {
+    subject: `⚠️ Action Required: Order #${order._id.toString().slice(-8).toUpperCase()} awaiting your response — ${shopName}`,
+    html: layout("Order Requires Your Attention",
+      h2(`Hi ${sellerName}, your order needs attention ⚠️`) +
+      p(`The ${BRAND} team noticed that order <strong>#${order._id.toString().slice(-8).toUpperCase()}</strong> placed on <strong>${fmtDate(order.createdAt || new Date())}</strong> is still <strong>${order.orderStatus}</strong> and has not been updated.`) +
+      (adminNote
+        ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+            <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#9a3412;text-transform:uppercase;">Message from Banavoo Admin</p>
+            <p style="margin:0;font-size:14px;color:#374151;">${adminNote}</p>
+           </div>`
+        : "") +
+      infoTable(
+        infoRow("Order ID",   `#${order._id.toString().slice(-8).toUpperCase()}`) +
+        infoRow("Date",       fmtDate(order.createdAt || new Date())) +
+        infoRow("Status",     order.orderStatus?.toUpperCase()) +
+        infoRow("Total",      `Rs.${order.totalAmount?.toLocaleString("en-IN")}`) +
+        infoRow("Delivery",   isPickup ? "Local Pickup" : "Seller Ships")
+      ) +
+      itemsBlock(order.items) +
+      `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;">Buyer Details</p>
+        <p style="margin:0 0 4px;font-size:14px;color:#374151;"><strong>${buyer?.name || addr?.fullName || "—"}</strong></p>
+        ${buyer?.phone ? `<p style="margin:0 0 2px;font-size:13px;color:#6b7280;">📞 ${buyer.phone}</p>` : ""}
+        ${buyer?.email ? `<p style="margin:0;font-size:13px;color:#6b7280;">✉️ ${buyer.email}</p>` : ""}
+      </div>` +
+      p(`Please log in to your seller dashboard and <strong>confirm or process this order immediately</strong>. If you have any issues, contact us at <a href="mailto:support@banavoo.in" style="color:${ACCENT};">support@banavoo.in</a>.`) +
+      `<div style="text-align:center;">` + btn("Open Seller Dashboard", `${FRONTEND}/seller`) + `</div>`
+    ),
+  };
+}
