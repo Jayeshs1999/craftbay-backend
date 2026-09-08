@@ -4,7 +4,7 @@ import asyncHandler from "../middleware/asyncHandler.js";
 import User from "../models/userModel.js";
 import generateToken from "../utils/generateToken.js";
 import { sendMail } from "../utils/mailer.js";
-import { welcomeEmail, sellerActivatedEmail, otpEmail } from "../utils/emailTemplates.js";
+import { welcomeEmail, sellerActivatedEmail, otpEmail, forgotPasswordEmail } from "../utils/emailTemplates.js";
 
 // ─── In-process OTP store ─────────────────────────────────────────────────────
 // Keyed by lower-cased email. Each entry: { name, phone, passwordHash, otpHash, expiresAt }
@@ -311,4 +311,88 @@ export const verifyOtp = asyncHandler(async (req, res) => {
     isSeller: user.isSeller,
     token,
   });
+});
+
+// ─── In-process reset-OTP store ───────────────────────────────────────────────
+// Keyed by lower-cased email. Entry: { otpHash, expiresAt }
+const resetOtpStore = new Map();
+
+// @desc  Forgot password — send OTP to registered email
+// @route POST /api/auth/send-reset-otp
+// @access Public
+export const sendResetOtp = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!email) { res.status(400); throw new Error("Email is required"); }
+
+  const key  = email.toLowerCase();
+  const user = await User.findOne({ email: key });
+
+  // Always respond OK to prevent email enumeration
+  if (!user) {
+    return res.json({ message: "If that email is registered, a reset code has been sent." });
+  }
+
+  // Block accounts that signed up via Google (no password set)
+  if (!user.password) {
+    res.status(400);
+    throw new Error("This account uses Google sign-in. Please sign in with Google.");
+  }
+
+  const otp       = generateOtp();
+  const salt      = await bcrypt.genSalt(10);
+  const otpHash   = await bcrypt.hash(otp, salt);
+  const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+  resetOtpStore.set(key, { otpHash, expiresAt });
+
+  const { subject, html } = forgotPasswordEmail({ name: user.name, otp });
+  sendMail({ to: user.email, subject, html });
+
+  res.json({ message: "If that email is registered, a reset code has been sent." });
+});
+
+// @desc  Reset password — verify OTP and set new password
+// @route POST /api/auth/reset-password
+// @access Public
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword) {
+    res.status(400);
+    throw new Error("Email, OTP and new password are required");
+  }
+  if (newPassword.length < 8) {
+    res.status(400);
+    throw new Error("Password must be at least 8 characters");
+  }
+
+  const key    = email.toLowerCase();
+  const record = resetOtpStore.get(key);
+
+  if (!record) {
+    res.status(400);
+    throw new Error("Reset code not found or already used. Please request a new one.");
+  }
+  if (Date.now() > record.expiresAt) {
+    resetOtpStore.delete(key);
+    res.status(400);
+    throw new Error("Reset code has expired. Please request a new one.");
+  }
+
+  const otpMatch = await bcrypt.compare(String(otp), record.otpHash);
+  if (!otpMatch) {
+    res.status(400);
+    throw new Error("Incorrect code. Please try again.");
+  }
+
+  // Consume the OTP immediately
+  resetOtpStore.delete(key);
+
+  const user = await User.findOne({ email: key });
+  if (!user) { res.status(404); throw new Error("User not found"); }
+
+  user.password = newPassword; // pre-save hook will hash it
+  await user.save();
+
+  res.json({ message: "Password reset successfully. You can now sign in." });
 });

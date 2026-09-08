@@ -4,6 +4,7 @@ import {
   registerUser, loginUser, logoutUser, getMe,
   becomeSeller, updateProfile, addAddress, deleteAddress,
   verifyToken, sendOtp, verifyOtp,
+  sendResetOtp, resetPassword,
 } from "../controllers/authController.js";
 import { googleCallback } from "../controllers/googleAuthController.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -13,6 +14,8 @@ const router = express.Router();
 router.post("/register",        registerUser);
 router.post("/send-otp",        sendOtp);
 router.post("/verify-otp",      verifyOtp);
+router.post("/send-reset-otp",  sendResetOtp);
+router.post("/reset-password",  resetPassword);
 router.post("/login",           loginUser);
 router.post("/verify-token",    verifyToken);
 router.post("/logout",          protect, logoutUser);
