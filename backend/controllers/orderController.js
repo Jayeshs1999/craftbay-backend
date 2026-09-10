@@ -10,11 +10,57 @@ import {
   orderStatusEmail,
 } from "../utils/emailTemplates.js";
 
+// --- Helper: resolve seller delivery config with defaults -------------------
+function resolveDeliveryCfg(cfg = {}) {
+  return {
+    selfShipEnabled:       cfg.selfShipEnabled       ?? true,
+    freeShippingAbove:     cfg.freeShippingAbove     ?? 0,
+    localCharge:           cfg.localCharge           ?? 40,
+    regionalCharge:        cfg.regionalCharge        ?? 60,
+    nationalCharge:        cfg.nationalCharge        ?? 80,
+    codEnabled:            cfg.codEnabled            ?? true,
+    codExtraCharge:        cfg.codExtraCharge        ?? 30,
+    estimatedDaysLocal:    cfg.estimatedDaysLocal    ?? 2,
+    estimatedDaysRegional: cfg.estimatedDaysRegional ?? 4,
+    estimatedDaysNational: cfg.estimatedDaysNational ?? 7,
+    deliveryNote:          cfg.deliveryNote          ?? "",
+  };
+}
+
+// --- Helper: calc self-ship charge using seller's own config ----------------
+function calcSelfShip({ cfg, fromCity, fromState, toCity, toState, orderTotal, isCOD }) {
+  const dc = resolveDeliveryCfg(cfg);
+
+  // Free-shipping threshold
+  if (dc.freeShippingAbove > 0 && orderTotal >= dc.freeShippingAbove) {
+    return { charge: isCOD && dc.codEnabled ? dc.codExtraCharge : 0, etaDays: dc.estimatedDaysLocal };
+  }
+
+  const sameCity  = fromCity?.toLowerCase()  === toCity?.toLowerCase();
+  const sameState = fromState?.toLowerCase() === toState?.toLowerCase();
+
+  let base, etaDays;
+  if (sameCity) {
+    base    = dc.localCharge;
+    etaDays = dc.estimatedDaysLocal;
+  } else if (sameState) {
+    base    = dc.regionalCharge;
+    etaDays = dc.estimatedDaysRegional;
+  } else {
+    base    = dc.nationalCharge;
+    etaDays = dc.estimatedDaysNational;
+  }
+
+  const codExtra = (isCOD && dc.codEnabled) ? dc.codExtraCharge : 0;
+  return { charge: base + codExtra, etaDays };
+}
+
 // --- Helper: validate & price cart ------------------------------------------
 async function buildOrderItems(cartItems) {
   const items = [];
   for (const ci of cartItems) {
-    const product = await Product.findById(ci.product).populate("seller", "sellerProfile.shopCity sellerProfile.shopState");
+    const product = await Product.findById(ci.product)
+      .populate("seller", "sellerProfile.shopCity sellerProfile.shopState sellerProfile.deliveryConfig");
     if (!product || !product.isActive) throw new Error(`Product unavailable: ${ci.product}`);
     if (product.stock < ci.quantity) throw new Error(`Insufficient stock for: ${product.name}`);
     items.push({
@@ -25,8 +71,9 @@ async function buildOrderItems(cartItems) {
       price:    product.price,
       quantity: ci.quantity,
       variant:  ci.variant || "",
-      _sellerCity:  product.seller.sellerProfile?.shopCity,
-      _sellerState: product.seller.sellerProfile?.shopState,
+      _sellerCity:         product.seller.sellerProfile?.shopCity,
+      _sellerState:        product.seller.sellerProfile?.shopState,
+      _sellerDeliveryCfg:  product.seller.sellerProfile?.deliveryConfig,
     });
   }
   return items;
@@ -40,6 +87,7 @@ export const getOrderQuote = asyncHandler(async (req, res) => {
 
   const items      = await buildOrderItems(cartItems);
   const itemsTotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const isCOD      = paymentMethod === "cod";
 
   // Local Pickup: no shipping charge, no COD surcharge — buyer pays at collection
   if (deliveryMode === "pickup") {
@@ -48,8 +96,8 @@ export const getOrderQuote = asyncHandler(async (req, res) => {
   }
 
   let shippingCharge = 0;
+
   if (deliveryMode === "platform") {
-    // Use first seller location as origin (multi-seller — use max charge)
     let maxCharge = 0;
     for (const item of items) {
       const { charge } = calcShipping({
@@ -58,11 +106,42 @@ export const getOrderQuote = asyncHandler(async (req, res) => {
         fromCity:  item._sellerCity,
         toCity:    shippingAddress.city,
         orderTotal: itemsTotal,
-        isCOD:     paymentMethod === "cod",
+        isCOD,
       });
       if (charge > maxCharge) maxCharge = charge;
     }
     shippingCharge = maxCharge;
+  } else if (deliveryMode === "self_ship") {
+    // Use seller's own delivery config — max charge across sellers in cart
+    let maxCharge = 0;
+    for (const item of items) {
+      const { charge } = calcSelfShip({
+        cfg:       item._sellerDeliveryCfg,
+        fromCity:  item._sellerCity,
+        fromState: item._sellerState,
+        toCity:    shippingAddress.city,
+        toState:   shippingAddress.state,
+        orderTotal: itemsTotal,
+        isCOD,
+      });
+      if (charge > maxCharge) maxCharge = charge;
+    }
+    shippingCharge = maxCharge;
+
+    // Collect delivery notes from all sellers (deduplicated)
+    const deliveryNotes = [...new Set(
+      items
+        .map((i) => resolveDeliveryCfg(i._sellerDeliveryCfg).deliveryNote)
+        .filter(Boolean)
+    )];
+
+    const platformFee = calcPlatformFee(itemsTotal);
+    return res.json({
+      itemsTotal, shippingCharge, platformFee,
+      totalAmount: itemsTotal + shippingCharge + platformFee,
+      deliveryMode,
+      deliveryNotes,
+    });
   }
 
   const platformFee  = calcPlatformFee(itemsTotal);
@@ -79,8 +158,9 @@ export const createOrder = asyncHandler(async (req, res) => {
 
   if (!cartItems || cartItems.length === 0) { res.status(400); throw new Error("Cart is empty"); }
 
-  const rawItems = await buildOrderItems(cartItems);
+  const rawItems   = await buildOrderItems(cartItems);
   const itemsTotal = rawItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  const isCOD      = paymentMethod === "cod";
 
   let shippingCharge = 0, etaDays = 5;
 
@@ -97,10 +177,27 @@ export const createOrder = asyncHandler(async (req, res) => {
         fromCity:  item._sellerCity,
         toCity:    shippingAddress.city,
         orderTotal: itemsTotal,
-        isCOD:     paymentMethod === "cod",
+        isCOD,
       });
       if (charge > maxCharge) maxCharge = charge;
       if (eta   > maxEta)   maxEta   = eta;
+    }
+    shippingCharge = maxCharge;
+    etaDays        = maxEta;
+  } else if (deliveryMode === "self_ship") {
+    let maxCharge = 0, maxEta = 0;
+    for (const item of rawItems) {
+      const { charge, etaDays: eta } = calcSelfShip({
+        cfg:       item._sellerDeliveryCfg,
+        fromCity:  item._sellerCity,
+        fromState: item._sellerState,
+        toCity:    shippingAddress.city,
+        toState:   shippingAddress.state,
+        orderTotal: itemsTotal,
+        isCOD,
+      });
+      if (charge > maxCharge) maxCharge = charge;
+      if (eta    > maxEta)   maxEta    = eta;
     }
     shippingCharge = maxCharge;
     etaDays        = maxEta;

@@ -39,6 +39,21 @@ const userSchema = new mongoose.Schema(
       rating:      { type: Number, default: 0 },
       totalSales:  { type: Number, default: 0 },
       isVerified:  { type: Boolean, default: false },
+
+      // Delivery configuration (for self_ship mode)
+      deliveryConfig: {
+        selfShipEnabled:      { type: Boolean, default: true },
+        freeShippingAbove:    { type: Number, default: 0 },    // 0 = never free
+        localCharge:          { type: Number, default: 40 },   // same city
+        regionalCharge:       { type: Number, default: 60 },   // same state
+        nationalCharge:       { type: Number, default: 80 },   // rest of India
+        codEnabled:           { type: Boolean, default: true },
+        codExtraCharge:       { type: Number, default: 30 },
+        estimatedDaysLocal:   { type: Number, default: 2 },
+        estimatedDaysRegional:{ type: Number, default: 4 },
+        estimatedDaysNational:{ type: Number, default: 7 },
+        deliveryNote:         { type: String, default: "" },   // shown to buyer at checkout
+      },
     },
 
     addresses:   [addressSchema],
