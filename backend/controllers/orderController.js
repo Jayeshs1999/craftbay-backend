@@ -15,9 +15,9 @@ function resolveDeliveryCfg(cfg = {}) {
   return {
     selfShipEnabled:       cfg.selfShipEnabled       ?? true,
     freeShippingAbove:     cfg.freeShippingAbove     ?? 0,
-    localCharge:           cfg.localCharge           ?? 40,
-    regionalCharge:        cfg.regionalCharge        ?? 60,
-    nationalCharge:        cfg.nationalCharge        ?? 80,
+    localCharge:           cfg.localCharge           ?? 10,
+    regionalCharge:        cfg.regionalCharge        ?? 10,
+    nationalCharge:        cfg.nationalCharge        ?? 10,
     codEnabled:            cfg.codEnabled            ?? true,
     codExtraCharge:        cfg.codExtraCharge        ?? 30,
     estimatedDaysLocal:    cfg.estimatedDaysLocal    ?? 2,
@@ -31,9 +31,9 @@ function resolveDeliveryCfg(cfg = {}) {
 function calcSelfShip({ cfg, fromCity, fromState, toCity, toState, orderTotal, isCOD }) {
   const dc = resolveDeliveryCfg(cfg);
 
-  // Free-shipping threshold
+  // Free-shipping threshold — zero delivery charge, COD surcharge does not apply
   if (dc.freeShippingAbove > 0 && orderTotal >= dc.freeShippingAbove) {
-    return { charge: isCOD && dc.codEnabled ? dc.codExtraCharge : 0, etaDays: dc.estimatedDaysLocal };
+    return { charge: 0, etaDays: dc.estimatedDaysLocal };
   }
 
   const sameCity  = fromCity?.toLowerCase()  === toCity?.toLowerCase();
