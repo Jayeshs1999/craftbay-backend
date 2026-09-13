@@ -511,3 +511,145 @@ export function sellerTipsEmail({ name, shopName }) {
     ),
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. ADMIN → BUYER OUTREACH EMAILS (sent from super-admin portal)
+//     Goal: tell buyers they can also become sellers on Banavoo.in
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * become_seller_intro
+ * For: buyers who joined but never opened a seller account
+ * Tone: gentle, curious, non-pushy — "did you know you can also sell?"
+ */
+export function buyerBecomeSellerIntroEmail({ name }) {
+  return {
+    subject: `${name}, did you know you can also sell on Banavoo.in? 🌿`,
+    html: layout("You Can Sell on Banavoo Too",
+      h2(`Hi ${name}, welcome to both sides of Banavoo 👋`) +
+      p(`You've been exploring handmade products on Banavoo.in — and we love having you as a buyer.`) +
+      p(`But here's something you might not know: <strong>if you make anything handmade — jewellery, candles, pottery, clothing, paintings, bags, skincare — you can open your own FREE shop on Banavoo.in right now.</strong>`) +
+      divider() +
+      `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:18px 20px;margin-bottom:20px;">
+        <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#065f46;">What you get as a seller:</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          ${[
+            ["🏪", "Your own shop page", "A unique link buyers can visit anytime"],
+            ["🆓", "100% Free forever", "No GSTN, no commission, no subscription"],
+            ["📦", "COD + local pickup", "Buyers pay cash when they receive"],
+            ["📤", "Share anywhere", "Post your shop on WhatsApp & Instagram"],
+            ["📧", "Auto order emails", "We notify you and your buyers automatically"],
+            ["⭐", "Real buyer reviews", "Build trust with every order"],
+          ].map(([icon, title, desc]) =>
+            `<tr>
+              <td style="padding:6px 0;vertical-align:top;width:32px;font-size:18px;">${icon}</td>
+              <td style="padding:6px 8px 6px 0;vertical-align:top;">
+                <p style="margin:0;font-size:13px;font-weight:700;color:#111827;">${title}</p>
+                <p style="margin:0;font-size:12px;color:#6b7280;">${desc}</p>
+              </td>
+            </tr>`
+          ).join("")}
+        </table>
+      </div>` +
+      p(`It takes <strong>less than 2 minutes</strong> to open your shop. No paperwork. No approval. Just sign up and start listing what you make.`) +
+      `<div style="text-align:center;margin-top:8px;">` +
+        btn("Open My Free Shop →", `${FRONTEND}/become-seller`) +
+      `</div>` +
+      `<p style="margin:16px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
+        Still just here to buy? That's perfectly fine too 😊<br/>
+        <a href="${FRONTEND}/products" style="color:${ACCENT};">Continue browsing products →</a>
+      </p>`
+    ),
+  };
+}
+
+/**
+ * become_seller_nudge
+ * For: buyers who showed interest (visited become-seller page) but didn't sign up
+ * Tone: warm encouragement — "your craft deserves its own shop"
+ */
+export function buyerBecomeSellerNudgeEmail({ name }) {
+  return {
+    subject: `${name}, your craft deserves its own shop on Banavoo.in 🎨`,
+    html: layout("Your Craft Deserves a Shop",
+      h2(`Hey ${name} — your work deserves to be seen 🌿`) +
+      p(`You've been browsing handmade products on Banavoo.in. We think you'd make a great seller too.`) +
+      p(`Think about it — if you make <strong>jewellery, pottery, candles, block-print clothing, paintings, bags, handmade skincare</strong> or anything by hand, there are buyers on Banavoo actively looking for exactly what you create.`) +
+      divider() +
+      `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+        <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#9a3412;">Here's how it works in 3 steps:</p>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          ${[
+            ["01", "#059669", "Create your shop", "Pick a shop name, add your city. Done in 2 minutes."],
+            ["02", "#d97706", "List your products", "Add photos, set your price. Each listing takes 60 seconds."],
+            ["03", "#7c3aed", "Receive orders", "Buyers find your shop, add to cart, and order directly from you."],
+          ].map(([step, color, title, desc]) =>
+            `<div style="display:flex;gap:12px;align-items:flex-start;">
+              <span style="width:28px;height:28px;border-radius:8px;background:${color}20;color:${color};font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${step}</span>
+              <div>
+                <p style="margin:0 0 2px;font-size:13px;font-weight:700;color:#111827;">${title}</p>
+                <p style="margin:0;font-size:12px;color:#6b7280;">${desc}</p>
+              </div>
+            </div>`
+          ).join("")}
+        </div>
+      </div>` +
+      p(`<strong>No GSTN. No subscription fees. No commission.</strong> You keep 100% of every sale.`) +
+      `<div style="text-align:center;">` +
+        btn("Open My Free Shop on Banavoo →", `${FRONTEND}/become-seller`) +
+      `</div>`
+    ),
+  };
+}
+
+/**
+ * become_seller_benefits
+ * For: any buyer — general awareness of seller benefits
+ * Tone: informative, inspiring — "turn your passion into income"
+ */
+export function buyerSellerBenefitsEmail({ name }) {
+  return {
+    subject: `Turn your passion into income — sell on Banavoo.in, ${name} 💰`,
+    html: layout("Sell on Banavoo.in",
+      h2(`Did you know? You can earn from your craft 💡`) +
+      p(`Hi <strong>${name}</strong>, thousands of Indian artisans and makers are already turning their handmade skills into real income on Banavoo.in — completely free.`) +
+      p(`Here's why Banavoo.in is different from selling on Instagram or other platforms:`) +
+      `<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:20px;font-size:12px;">
+        <thead>
+          <tr style="background:#f9fafb;">
+            <th style="padding:10px 14px;text-align:left;color:#6b7280;font-weight:600;">Feature</th>
+            <th style="padding:10px 14px;text-align:center;color:#6b7280;font-weight:600;">Instagram</th>
+            <th style="padding:10px 14px;text-align:center;color:#6b7280;font-weight:600;">Big Marketplaces</th>
+            <th style="padding:10px 14px;text-align:center;color:${ACCENT};font-weight:700;">Banavoo.in</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${[
+            ["Free to sell", "✅", "❌", "✅"],
+            ["No commission", "✅", "❌", "✅"],
+            ["No GSTN needed", "✅", "❌", "✅"],
+            ["Your own shop page", "❌", "❌", "✅"],
+            ["COD supported", "❌", "✅", "✅"],
+            ["Local pickup option", "❌", "❌", "✅"],
+            ["Order management", "❌", "✅", "✅"],
+            ["Auto buyer emails", "❌", "✅", "✅"],
+          ].map(([feat, ig, big, ban], i) =>
+            `<tr style="background:${i % 2 === 0 ? "#ffffff" : "#f9fafb"};">
+              <td style="padding:9px 14px;color:#374151;font-weight:500;">${feat}</td>
+              <td style="padding:9px 14px;text-align:center;">${ig}</td>
+              <td style="padding:9px 14px;text-align:center;">${big}</td>
+              <td style="padding:9px 14px;text-align:center;font-weight:700;color:${ACCENT};">${ban}</td>
+            </tr>`
+          ).join("")}
+        </tbody>
+      </table>` +
+      p(`Your buyers are already on Banavoo. Your shop could be live in under 2 minutes.`) +
+      `<div style="text-align:center;">` +
+        btn("Start Selling Free on Banavoo →", `${FRONTEND}/become-seller`) +
+      `</div>` +
+      `<p style="margin:16px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
+        Questions? Reply to this email — I personally read every response 🙏
+      </p>`
+    ),
+  };
+}

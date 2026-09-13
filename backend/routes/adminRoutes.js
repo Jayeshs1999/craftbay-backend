@@ -8,6 +8,8 @@ import {
   adminUpdateOrderStatus,
   adminGetSellers,
   adminMailSellers,
+  adminGetBuyers,
+  adminMailBuyers,
 } from "../controllers/adminController.js";
 import { protect, requireAdmin } from "../middleware/authMiddleware.js";
 
@@ -24,5 +26,7 @@ router.post("/orders/:id/nudge-seller", adminNudgeSeller);
 router.get("/users",                    adminGetUsers);
 router.get("/sellers",                  adminGetSellers);
 router.post("/mail-sellers",            adminMailSellers);
+router.get("/buyers",                   adminGetBuyers);
+router.post("/mail-buyers",             adminMailBuyers);
 
 export default router;

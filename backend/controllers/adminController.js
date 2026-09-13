@@ -10,6 +10,9 @@ import {
   sellerKeepGoingEmail,
   sellerShareShopEmail,
   sellerTipsEmail,
+  buyerBecomeSellerIntroEmail,
+  buyerBecomeSellerNudgeEmail,
+  buyerSellerBenefitsEmail,
 } from "../utils/emailTemplates.js";
 
 // ─── GET /api/admin/orders ─────────────────────────────────────────────────
@@ -277,4 +280,90 @@ export const adminUpdateOrderStatus = asyncHandler(async (req, res) => {
 
   await order.save();
   res.json(order);
+});
+
+// ─── GET /api/admin/buyers ────────────────────────────────────────────────
+// @desc  Admin: list buyers (non-sellers) for outreach mail panel
+// @route GET /api/admin/buyers?filter=all|no_orders|has_orders
+// @access Private/Admin
+export const adminGetBuyers = asyncHandler(async (req, res) => {
+  const { filter = "all" } = req.query;
+
+  // Buyers = users who are NOT sellers
+  const buyers = await User.find({ isSeller: false, role: { $ne: "admin" } })
+    .select("name email createdAt")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const buyerIds = buyers.map((b) => b._id);
+
+  // Count orders per buyer
+  const orderCounts = await Order.aggregate([
+    { $match: { buyer: { $in: buyerIds } } },
+    { $group: { _id: "$buyer", count: { $sum: 1 } } },
+  ]);
+  const orderMap = Object.fromEntries(orderCounts.map((o) => [o._id.toString(), o.count]));
+
+  let result = buyers.map((b) => ({
+    ...b,
+    orderCount: orderMap[b._id.toString()] || 0,
+  }));
+
+  if (filter === "no_orders")  result = result.filter((b) => b.orderCount === 0);
+  if (filter === "has_orders") result = result.filter((b) => b.orderCount > 0);
+
+  res.json({ buyers: result, total: result.length });
+});
+
+// ─── POST /api/admin/mail-buyers ──────────────────────────────────────────
+// @desc  Admin: send a "become a seller" email type to selected buyers
+// @route POST /api/admin/mail-buyers
+// @body  { buyerIds: string[], mailType: "become_seller_intro"|"become_seller_nudge"|"seller_benefits", customNote?: string }
+// @access Private/Admin
+export const adminMailBuyers = asyncHandler(async (req, res) => {
+  const { buyerIds, mailType, customNote } = req.body;
+
+  if (!buyerIds?.length) {
+    res.status(400); throw new Error("No buyers selected");
+  }
+
+  const BUYER_MAIL_TYPES = ["become_seller_intro", "become_seller_nudge", "seller_benefits"];
+  if (!mailType || !BUYER_MAIL_TYPES.includes(mailType)) {
+    res.status(400); throw new Error(`Invalid mailType. Must be one of: ${BUYER_MAIL_TYPES.join(", ")}`);
+  }
+
+  const buyers = await User.find({ _id: { $in: buyerIds }, isSeller: false })
+    .select("name email")
+    .lean();
+
+  const templateFn = {
+    become_seller_intro:  buyerBecomeSellerIntroEmail,
+    become_seller_nudge:  buyerBecomeSellerNudgeEmail,
+    seller_benefits:      buyerSellerBenefitsEmail,
+  }[mailType];
+
+  const sent = [];
+  const failed = [];
+
+  for (const buyer of buyers) {
+    if (!buyer.email) { failed.push({ id: buyer._id, reason: "no email" }); continue; }
+    try {
+      const { subject, html } = templateFn({ name: buyer.name });
+      const finalHtml = customNote
+        ? html.replace(
+            "</table>\n</body>",
+            `<tr><td style="padding:16px 32px 24px;background:#f0fdf4;border-top:1px solid #bbf7d0;">
+              <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#065f46;text-transform:uppercase;">Personal note from Banavoo</p>
+              <p style="margin:0;font-size:14px;color:#374151;">${customNote}</p>
+            </td></tr></table>\n</body>`
+          )
+        : html;
+      await sendMail({ to: buyer.email, subject, html: finalHtml });
+      sent.push({ id: buyer._id, name: buyer.name, email: buyer.email });
+    } catch (err) {
+      failed.push({ id: buyer._id, name: buyer.name, reason: err.message });
+    }
+  }
+
+  res.json({ sent, failed, total: sent.length });
 });
