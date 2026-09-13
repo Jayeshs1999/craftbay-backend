@@ -3,7 +3,14 @@ import Order from "../models/orderModel.js";
 import Product from "../models/productModel.js";
 import User from "../models/userModel.js";
 import { sendMail } from "../utils/mailer.js";
-import { adminNudgeSellerEmail } from "../utils/emailTemplates.js";
+import {
+  adminNudgeSellerEmail,
+  sellerNoProductsEmail,
+  sellerOneProductEmail,
+  sellerKeepGoingEmail,
+  sellerShareShopEmail,
+  sellerTipsEmail,
+} from "../utils/emailTemplates.js";
 
 // ─── GET /api/admin/orders ─────────────────────────────────────────────────
 // @desc  Admin: list all orders with buyer + seller details, filterable
@@ -163,6 +170,96 @@ export const adminGetUsers = asyncHandler(async (req, res) => {
     User.countDocuments(filter),
   ]);
   res.json({ users, page, pages: Math.ceil(total / limit), total });
+});
+
+// ─── GET /api/admin/sellers ───────────────────────────────────────────────
+// @desc  Admin: list sellers with product count (for mail panel)
+// @route GET /api/admin/sellers?filter=no_products|one_product|all
+// @access Private/Admin
+export const adminGetSellers = asyncHandler(async (req, res) => {
+  const { filter = "all" } = req.query;
+
+  const sellers = await User.find({ isSeller: true })
+    .select("name email sellerProfile createdAt")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // Attach product count to each seller
+  const sellerIds = sellers.map((s) => s._id);
+  const productCounts = await Product.aggregate([
+    { $match: { seller: { $in: sellerIds } } },
+    { $group: { _id: "$seller", count: { $sum: 1 } } },
+  ]);
+  const countMap = Object.fromEntries(productCounts.map((p) => [p._id.toString(), p.count]));
+
+  let result = sellers.map((s) => ({
+    ...s,
+    productCount: countMap[s._id.toString()] || 0,
+  }));
+
+  if (filter === "no_products")  result = result.filter((s) => s.productCount === 0);
+  if (filter === "one_product")  result = result.filter((s) => s.productCount === 1);
+
+  res.json({ sellers: result, total: result.length });
+});
+
+// ─── POST /api/admin/mail-sellers ─────────────────────────────────────────
+// @desc  Admin: send a chosen email type to one or more sellers
+// @route POST /api/admin/mail-sellers
+// @body  { sellerIds: string[], mailType: "no_products"|"one_product"|"keep_going"|"share_shop"|"tips", customNote?: string }
+// @access Private/Admin
+export const adminMailSellers = asyncHandler(async (req, res) => {
+  const { sellerIds, mailType, customNote } = req.body;
+
+  if (!sellerIds?.length) {
+    res.status(400); throw new Error("No sellers selected");
+  }
+  if (!mailType) {
+    res.status(400); throw new Error("mailType is required");
+  }
+
+  const MAIL_TYPES = ["no_products", "one_product", "keep_going", "share_shop", "tips"];
+  if (!MAIL_TYPES.includes(mailType)) {
+    res.status(400); throw new Error(`Invalid mailType. Must be one of: ${MAIL_TYPES.join(", ")}`);
+  }
+
+  const sellers = await User.find({ _id: { $in: sellerIds }, isSeller: true })
+    .select("name email sellerProfile")
+    .lean();
+
+  const templateFn = {
+    no_products:  sellerNoProductsEmail,
+    one_product:  sellerOneProductEmail,
+    keep_going:   sellerKeepGoingEmail,
+    share_shop:   sellerShareShopEmail,
+    tips:         sellerTipsEmail,
+  }[mailType];
+
+  const sent = [];
+  const failed = [];
+
+  for (const seller of sellers) {
+    if (!seller.email) { failed.push({ id: seller._id, reason: "no email" }); continue; }
+    const shopName = seller.sellerProfile?.shopName || seller.name;
+    try {
+      const { subject, html } = templateFn({ name: seller.name, shopName });
+      const finalHtml = customNote
+        ? html.replace(
+            "</table>\n</body>",
+            `<tr><td style="padding:16px 32px 24px;background:#fff7ed;border-top:1px solid #fed7aa;">
+              <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#9a3412;text-transform:uppercase;">Personal note from Banavoo</p>
+              <p style="margin:0;font-size:14px;color:#374151;">${customNote}</p>
+            </td></tr></table>\n</body>`
+          )
+        : html;
+      await sendMail({ to: seller.email, subject, html: finalHtml });
+      sent.push({ id: seller._id, name: seller.name, email: seller.email });
+    } catch (err) {
+      failed.push({ id: seller._id, name: seller.name, reason: err.message });
+    }
+  }
+
+  res.json({ sent, failed, total: sent.length });
 });
 
 // ─── PUT /api/admin/orders/:id/status ─────────────────────────────────────

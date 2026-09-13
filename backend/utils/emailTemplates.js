@@ -388,3 +388,126 @@ export function forgotPasswordEmail({ name, otp }) {
     ),
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. ADMIN → SELLER OUTREACH EMAILS (sent from super-admin portal)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** no_products — seller signed up but added 0 products */
+export function sellerNoProductsEmail({ name, shopName }) {
+  return {
+    subject: `${name}, your shop is empty — let's fix that 🛍️`,
+    html: layout("Add Your First Product",
+      h2(`Hi ${name}, your shop is waiting! 🌿`) +
+      p(`You've already done the hard part — your shop <strong>${shopName}</strong> is live on Banavoo.in. Now all it needs is your products.`) +
+      p(`Here's why it matters: buyers who land on your shop want to browse. An empty shop means a missed order. Adding even <strong>3–5 products</strong> is enough to start.`) +
+      divider() +
+      `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+        <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#065f46;">How to add a product (takes 2 minutes):</p>
+        <ol style="margin:0;padding-left:18px;font-size:13px;color:#374151;line-height:1.9;">
+          <li>Go to your Seller Dashboard</li>
+          <li>Click <strong>"Add New Product"</strong></li>
+          <li>Upload a photo, set your price, write a short description</li>
+          <li>Click Publish — done! 🎉</li>
+        </ol>
+      </div>` +
+      p(`Your first order could come sooner than you think. We're rooting for you 🙏`) +
+      `<div style="text-align:center;">` + btn("Add Your First Product →", `${FRONTEND}/seller/new-product`) + `</div>`
+    ),
+  };
+}
+
+/** one_product — seller has exactly 1 product, nudge to add more */
+export function sellerOneProductEmail({ name, shopName }) {
+  return {
+    subject: `One product is a start, ${name} — here's what happens next 🌱`,
+    html: layout("Keep Adding Products",
+      h2(`You've made a great start, ${name}! 👏`) +
+      p(`Your shop <strong>${shopName}</strong> has its first product live. That's a real milestone.`) +
+      p(`Here's something we've noticed: shops with <strong>5 or more products</strong> start receiving their first orders much faster. Buyers love to browse — more products means more time on your shop and a higher chance of an order.`) +
+      infoTable(
+        infoRow("Your current products", "1") +
+        infoRow("Recommended to get first order", "5–10 products") +
+        infoRow("Time to add each product", "~2 minutes")
+      ) +
+      p(`You're almost there. Set aside 15 minutes this week and add 4 more products. You'll be amazed at the difference it makes.`) +
+      `<div style="text-align:center;">` + btn("Add More Products →", `${FRONTEND}/seller/new-product`) + `</div>`
+    ),
+  };
+}
+
+/** keep_going — general motivational nudge for any seller */
+export function sellerKeepGoingEmail({ name, shopName }) {
+  return {
+    subject: `${name}, your Banavoo shop is growing — keep going 💪`,
+    html: layout("Keep Growing Your Shop",
+      h2(`Hey ${name}, we believe in your craft 🌿`) +
+      p(`Just wanted to send a quick note of encouragement about your shop <strong>${shopName}</strong> on Banavoo.in.`) +
+      p(`Building an online business takes time. Your first order might not come today — but every product you add, every time you share your shop link, every description you write is bringing you closer to it.`) +
+      divider() +
+      `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+        <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#9a3412;">3 things to do this week:</p>
+        <ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;line-height:1.9;">
+          <li>Add 2–3 new products to your shop</li>
+          <li>Share your shop link on your WhatsApp status</li>
+          <li>Post your shop link in your Instagram bio</li>
+        </ul>
+      </div>` +
+      p(`We're with you every step of the way 🙏`) +
+      `<div style="text-align:center;">` + btn("Open My Seller Dashboard", `${FRONTEND}/seller`) + `</div>`
+    ),
+  };
+}
+
+/** share_shop — remind seller to share their shop link */
+export function sellerShareShopEmail({ name, shopName }) {
+  return {
+    subject: `${name}, have you shared your Banavoo shop link yet? 🔗`,
+    html: layout("Share Your Shop",
+      h2(`Your buyers are one link away, ${name} 📲`) +
+      p(`Your shop <strong>${shopName}</strong> is live and ready for buyers — but buyers can only find you if you share your link.`) +
+      `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px 20px;margin-bottom:20px;text-align:center;">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#065f46;text-transform:uppercase;">Your Shop Link</p>
+        <p style="margin:0;font-size:14px;font-weight:700;color:${ACCENT};">banavoo.in/seller → copy from your dashboard</p>
+      </div>` +
+      `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#374151;">Share it on:</p>
+      <ul style="margin:0 0 20px;padding-left:18px;font-size:13px;color:#374151;line-height:2;">
+        <li>📱 <strong>WhatsApp Status</strong> — your contacts see it every day</li>
+        <li>📸 <strong>Instagram Bio</strong> — every profile visitor clicks it</li>
+        <li>👥 <strong>Facebook</strong> — post in local buy-sell groups</li>
+        <li>💬 <strong>WhatsApp Groups</strong> — craft, local, neighbourhood groups</li>
+      </ul>` +
+      p(`Your existing followers and friends are your first buyers. Give them a way to find you 🌿`) +
+      `<div style="text-align:center;">` + btn("Go to My Seller Dashboard", `${FRONTEND}/seller`) + `</div>`
+    ),
+  };
+}
+
+/** tips — 5 tips email for sellers */
+export function sellerTipsEmail({ name, shopName }) {
+  return {
+    subject: `5 tips to get your first order on Banavoo.in, ${name} 💡`,
+    html: layout("Tips to Get Your First Order",
+      h2(`Here's how to get your first order, ${name} 🎯`) +
+      p(`Your shop <strong>${shopName}</strong> is live. Here are 5 proven tips to start receiving orders:`) +
+      [
+        ["🛍️", "Add 8–10 products", "Buyers browse before they buy. More products = more chances for an order."],
+        ["📸", "Use clear, bright photos", "Natural daylight photos taken with your phone work perfectly. Show multiple angles."],
+        ["✍️", "Write real descriptions", "Tell buyers the materials, size, how it's made, what occasion it suits. Stories sell."],
+        ["🔗", "Share your shop link daily", "Post on WhatsApp status, Instagram bio, and Facebook. Once a day. Every day."],
+        ["⭐", "Ask early buyers for reviews", "Even one review builds huge trust for future buyers."],
+      ].map(([icon, title, desc]) =>
+        `<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;">
+          <span style="font-size:22px;line-height:1;flex-shrink:0;">${icon}</span>
+          <div>
+            <p style="margin:0 0 3px;font-size:14px;font-weight:700;color:#111827;">${title}</p>
+            <p style="margin:0;font-size:13px;color:#6b7280;">${desc}</p>
+          </div>
+        </div>`
+      ).join("") +
+      divider() +
+      p(`Your first order is closer than you think. Keep going — we're cheering for you 🌿`) +
+      `<div style="text-align:center;">` + btn("Go to Seller Dashboard", `${FRONTEND}/seller`) + `</div>`
+    ),
+  };
+}
