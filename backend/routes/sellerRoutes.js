@@ -21,6 +21,8 @@ router.get(
     // Return with sensible defaults so frontend never gets undefined fields
     res.json({
       selfShipEnabled:       cfg.selfShipEnabled       ?? true,
+      pickupEnabled:         cfg.pickupEnabled         ?? true,
+      banavooShipEnabled:    cfg.banavooShipEnabled    ?? true,
       freeShippingAbove:     cfg.freeShippingAbove     ?? 0,
       localCharge:           cfg.localCharge           ?? 10,
       regionalCharge:        cfg.regionalCharge        ?? 10,
@@ -44,7 +46,8 @@ router.put(
   requireSeller,
   asyncHandler(async (req, res) => {
     const allowed = [
-      "selfShipEnabled", "freeShippingAbove",
+      "selfShipEnabled", "pickupEnabled", "banavooShipEnabled",
+      "freeShippingAbove",
       "localCharge", "regionalCharge", "nationalCharge",
       "codEnabled", "codExtraCharge",
       "estimatedDaysLocal", "estimatedDaysRegional", "estimatedDaysNational",
@@ -67,6 +70,8 @@ router.put(
     const cfg = seller?.sellerProfile?.deliveryConfig || {};
     res.json({
       selfShipEnabled:       cfg.selfShipEnabled       ?? true,
+      pickupEnabled:         cfg.pickupEnabled         ?? true,
+      banavooShipEnabled:    cfg.banavooShipEnabled    ?? true,
       freeShippingAbove:     cfg.freeShippingAbove     ?? 0,
       localCharge:           cfg.localCharge           ?? 10,
       regionalCharge:        cfg.regionalCharge        ?? 10,
@@ -77,6 +82,25 @@ router.put(
       estimatedDaysRegional: cfg.estimatedDaysRegional ?? 4,
       estimatedDaysNational: cfg.estimatedDaysNational ?? 7,
       deliveryNote:          cfg.deliveryNote          ?? "",
+    });
+  })
+);
+
+// @desc  Get delivery config for a specific seller (public — used at checkout)
+// @route GET /api/sellers/:id/delivery-config
+// @access Public
+router.get(
+  "/:id/delivery-config",
+  asyncHandler(async (req, res) => {
+    const seller = await User.findById(req.params.id)
+      .select("sellerProfile.deliveryConfig")
+      .lean();
+    if (!seller) return res.status(404).json({ message: "Seller not found" });
+    const cfg = seller?.sellerProfile?.deliveryConfig || {};
+    res.json({
+      selfShipEnabled:   cfg.selfShipEnabled   ?? true,
+      pickupEnabled:     cfg.pickupEnabled     ?? true,
+      banavooShipEnabled: cfg.banavooShipEnabled ?? true,
     });
   })
 );
