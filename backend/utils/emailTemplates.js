@@ -653,3 +653,30 @@ export function buyerSellerBenefitsEmail({ name }) {
     ),
   };
 }
+
+export function sellerPayoutReleasedEmail({ sellerName, shopName, order, amount }) {
+  return {
+    subject: `💸 Your payout of ₹${amount.toLocaleString("en-IN")} has been released — ${shopName}`,
+    html: layout("Payout Released", `
+      ${h2(`Payment released to your account! 💸`)}
+      ${p(`Hi <strong>${sellerName}</strong>,`)}
+      ${p(`Great news — the buyer has confirmed delivery for order <strong>#${order._id.toString().slice(-8).toUpperCase()}</strong> and Banavoo has released your payout.`)}
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <tr style="background:#f9fafb;">
+          <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Detail</td>
+          <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;text-align:right;">Amount</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 16px;font-size:14px;color:#374151;">Order Total (Items)</td>
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:#059669;text-align:right;">₹${amount.toLocaleString("en-IN")}</td>
+        </tr>
+        <tr style="background:#f9fafb;">
+          <td style="padding:12px 16px;font-size:13px;color:#6b7280;">Order ID</td>
+          <td style="padding:12px 16px;font-size:13px;color:#6b7280;text-align:right;font-family:monospace;">#${order._id.toString().slice(-8).toUpperCase()}</td>
+        </tr>
+      </table>
+      ${p(`The amount will reflect in your linked bank account within 3–5 business days depending on your bank.`)}
+      ${p(`Thank you for selling on <strong>Banavoo.in</strong>. Keep listing more products to grow your sales! 🌿`)}
+    `),
+  };
+}

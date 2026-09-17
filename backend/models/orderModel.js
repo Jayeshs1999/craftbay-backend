@@ -53,9 +53,13 @@ const orderSchema = new mongoose.Schema(
     // Payment
     paymentMethod:   { type: String, enum: ["razorpay", "cod"], default: "razorpay" },
     paymentStatus:   { type: String, enum: ["pending", "paid", "failed", "refunded"], default: "pending" },
-    razorpayOrderId: { type: String },
-    razorpayPaymentId:{ type: String },
-    paidAt:          { type: Date },
+    razorpayOrderId:   { type: String },
+    razorpayPaymentId: { type: String },
+    paidAt:            { type: Date },
+
+    // Seller payout (admin releases after delivery for online orders)
+    sellerPaid:        { type: Boolean, default: false },
+    sellerPaidAt:      { type: Date },
 
     // Order lifecycle
     orderStatus: {
