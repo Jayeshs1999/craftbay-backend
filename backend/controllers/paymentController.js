@@ -61,6 +61,10 @@ async function buildOrderItems(cartItems) {
       price:    product.price,
       quantity: ci.quantity,
       variant:  ci.variant || "",
+      customizationRequirement: ci.customizationRequirement || "",
+      customizationDays: (ci.customizationRequirement && product.isCustomizable)
+        ? (product.customizationDays || 0)
+        : 0,
       _sellerCity:        product.seller.sellerProfile?.shopCity,
       _sellerState:       product.seller.sellerProfile?.shopState,
       _sellerDeliveryCfg: product.seller.sellerProfile?.deliveryConfig,

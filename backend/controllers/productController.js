@@ -3,7 +3,7 @@ import Product from "../models/productModel.js";
 import { cloudinary } from "../config/cloudinary.js";
 
 // -----------------------------------------------------------------------------
-// PUBLIC � no auth required
+// PUBLIC - no auth required
 // -----------------------------------------------------------------------------
 
 // @desc  List products (search, filter, sort, paginate)
@@ -80,7 +80,14 @@ export const getProduct = asyncHandler(async (req, res) => {
     .populate("reviews.user", "name avatar");
 
   if (!product) { res.status(404); throw new Error("Product not found"); }
-  res.json(product);
+
+  // Normalize customization fields — older docs pre-date these fields and have undefined values
+  const data = product.toObject();
+  if (!data.isCustomizable)    data.isCustomizable    = false;
+  if (!data.customizationDays) data.customizationDays = 0;
+  if (!data.customizationNote) data.customizationNote = "";
+
+  res.json(data);
 });
 
 // @desc  Get distinct categories
@@ -112,7 +119,7 @@ export const addReview = asyncHandler(async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// SELLER � auth + isSeller required
+// SELLER - auth + isSeller required
 // -----------------------------------------------------------------------------
 
 // @desc  Create a product
@@ -123,6 +130,7 @@ export const createProduct = asyncHandler(async (req, res) => {
     name, description, shortDesc, price, comparePrice,
     stock, sku, category, subCategory, tags, variants,
     weight, length, width, height, freeShipping, shippingCharge,
+    isCustomizable, customizationDays, customizationNote,
   } = req.body;
 
   // Uploaded files come from multer-cloudinary
@@ -146,6 +154,9 @@ export const createProduct = asyncHandler(async (req, res) => {
     freeShipping: freeShipping === "true",
     shippingCharge: shippingCharge ? Number(shippingCharge) : 0,
     images,
+    isCustomizable: isCustomizable === "true" || isCustomizable === true,
+    customizationDays: customizationDays ? Number(customizationDays) : 0,
+    customizationNote: customizationNote || "",
   });
 
   res.status(201).json(product);
@@ -165,6 +176,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
     "name","description","shortDesc","price","comparePrice","stock","sku",
     "category","subCategory","tags","weight","length","width","height",
     "freeShipping","shippingCharge","isActive",
+    "isCustomizable","customizationDays","customizationNote",
   ];
   allowed.forEach((key) => {
     if (req.body[key] !== undefined) product[key] = req.body[key];
@@ -220,9 +232,19 @@ export const getMyProducts = asyncHandler(async (req, res) => {
   const filter = { seller: req.user._id };
   if (req.query.active) filter.isActive = req.query.active === "true";
 
-  const [products, total] = await Promise.all([
+  const [docs, total] = await Promise.all([
     Product.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
     Product.countDocuments(filter),
   ]);
+
+  // Normalize customization fields for older documents
+  const products = docs.map((p) => {
+    const d = p.toObject();
+    if (!d.isCustomizable)    d.isCustomizable    = false;
+    if (!d.customizationDays) d.customizationDays = 0;
+    if (!d.customizationNote) d.customizationNote = "";
+    return d;
+  });
+
   res.json({ products, page, pages: Math.ceil(total / limit), total });
 });
