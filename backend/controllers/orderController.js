@@ -31,7 +31,7 @@ function resolveDeliveryCfg(cfg = {}) {
 function calcSelfShip({ cfg, fromCity, fromState, toCity, toState, orderTotal, isCOD }) {
   const dc = resolveDeliveryCfg(cfg);
 
-  // Free-shipping threshold — zero delivery charge, COD surcharge does not apply
+  // Free-shipping threshold - zero delivery charge, COD surcharge does not apply
   if (dc.freeShippingAbove > 0 && orderTotal >= dc.freeShippingAbove) {
     return { charge: 0, etaDays: dc.estimatedDaysLocal };
   }
@@ -71,6 +71,10 @@ async function buildOrderItems(cartItems) {
       price:    product.price,
       quantity: ci.quantity,
       variant:  ci.variant || "",
+      customizationRequirement: ci.customizationRequirement || "",
+      customizationDays: (ci.customizationRequirement && product.isCustomizable)
+        ? (product.customizationDays || 0)
+        : 0,
       _sellerCity:         product.seller.sellerProfile?.shopCity,
       _sellerState:        product.seller.sellerProfile?.shopState,
       _sellerDeliveryCfg:  product.seller.sellerProfile?.deliveryConfig,
@@ -79,7 +83,7 @@ async function buildOrderItems(cartItems) {
   return items;
 }
 
-// @desc  Calculate order quote (shipping + fees) � no DB write
+// @desc  Calculate order quote (shipping + fees) - no DB write
 // @route POST /api/orders/quote
 // @access Private
 export const getOrderQuote = asyncHandler(async (req, res) => {
@@ -89,7 +93,7 @@ export const getOrderQuote = asyncHandler(async (req, res) => {
   const itemsTotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const isCOD      = paymentMethod === "cod";
 
-  // Local Pickup: no shipping charge, no COD surcharge — buyer pays at collection
+  // Local Pickup: no shipping charge, no COD surcharge - buyer pays at collection
   if (deliveryMode === "pickup") {
     const platformFee = calcPlatformFee(itemsTotal);
     return res.json({ itemsTotal, shippingCharge: 0, platformFee, totalAmount: itemsTotal + platformFee, deliveryMode });
@@ -112,7 +116,7 @@ export const getOrderQuote = asyncHandler(async (req, res) => {
     }
     shippingCharge = maxCharge;
   } else if (deliveryMode === "self_ship") {
-    // Use seller's own delivery config — max charge across sellers in cart
+    // Use seller's own delivery config - max charge across sellers in cart
     let maxCharge = 0;
     for (const item of items) {
       const { charge } = calcSelfShip({
@@ -207,9 +211,9 @@ export const createOrder = asyncHandler(async (req, res) => {
   const totalAmount = itemsTotal + shippingCharge + platformFee;
 
   // Strip internal helper fields before storing
-  const cleanItems = rawItems.map(({ _sellerCity, _sellerState, ...rest }) => rest);
+  const cleanItems = rawItems.map(({ _sellerCity, _sellerState, _sellerDeliveryCfg, ...rest }) => rest);
 
-  // For pickup orders etaDays=0 means buyer collects — no estimated delivery date stored
+  // For pickup orders etaDays=0 means buyer collects - no estimated delivery date stored
   const estimatedDelivery = etaDays > 0 ? new Date(Date.now() + etaDays * 86_400_000) : undefined;
 
   const order = await Order.create({
@@ -219,7 +223,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     itemsTotal, shippingCharge, platformFee,
     totalAmount, deliveryMode, paymentMethod,
     estimatedDelivery, notes,
-    statusHistory: [{ status: "pending", note: deliveryMode === "pickup" ? "Order placed — awaiting pickup arrangement" : "Order placed", updatedBy: "system" }],
+    statusHistory: [{ status: "pending", note: deliveryMode === "pickup" ? "Order placed - awaiting pickup arrangement" : "Order placed", updatedBy: "system" }],
   });
 
   // Decrement stock
@@ -227,8 +231,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
   }
 
-  // ── Emails (fire-and-forget) ──────────────────────────────────────────────
-  // Populate buyer email for notifications
+  // Email notifications (fire-and-forget)
   const buyerDoc = await User.findById(req.user._id).select("name email");
 
   // 1. Confirmation to buyer
@@ -266,10 +269,37 @@ export const getMyOrders = asyncHandler(async (req, res) => {
   const filter = { buyer: req.user._id };
   if (req.query.status) filter.orderStatus = req.query.status;
 
-  const [orders, total] = await Promise.all([
-    Order.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
+  const [docs, total] = await Promise.all([
+    Order.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      // Populate customizationDays from the live product so old orders also show correct value
+      .populate("items.product", "customizationDays isCustomizable"),
     Order.countDocuments(filter),
   ]);
+
+  // Merge live customizationDays from product into each item (handles orders placed before field existed)
+  const orders = docs.map((order) => {
+    const obj = order.toObject();
+    obj.items = obj.items.map((item) => {
+      const prod = item.product;
+      const liveDays = (prod && typeof prod === "object" && prod.isCustomizable)
+        ? (prod.customizationDays || 0)
+        : 0;
+      return {
+        ...item,
+        // Use stored value if > 0 (new orders), otherwise fall back to live product value
+        customizationDays: item.customizationRequirement
+          ? (item.customizationDays > 0 ? item.customizationDays : liveDays)
+          : 0,
+        // Keep product as ID string for frontend compatibility
+        product: (prod && typeof prod === "object") ? prod._id : prod,
+      };
+    });
+    return obj;
+  });
+
   res.json({ orders, page, pages: Math.ceil(total / limit), total });
 });
 
@@ -291,7 +321,7 @@ export const getOrder = asyncHandler(async (req, res) => {
   res.json(order);
 });
 
-// @desc  Seller updates order status (processing ? shipped ? delivered)
+// @desc  Seller updates order status (processing -> shipped -> delivered)
 // @route PUT /api/orders/:id/status
 // @access Private/Seller or Admin
 export const updateOrderStatus = asyncHandler(async (req, res) => {
@@ -310,7 +340,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
   await order.save();
 
-  // ── Email buyer about the status change (fire-and-forget) ─────────────────
+  // Email buyer about the status change (fire-and-forget)
   const buyerDoc = await User.findById(order.buyer).select("name email");
   if (buyerDoc?.email) {
     const { subject, html } = orderStatusEmail({

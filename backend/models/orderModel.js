@@ -8,6 +8,8 @@ const orderItemSchema = new mongoose.Schema({
   price:     { type: Number, required: true },
   quantity:  { type: Number, required: true },
   variant:   { type: String },             // e.g. "Color: Red, Size: M"
+  customizationRequirement: { type: String, default: "" }, // buyer's custom instructions for this item
+  customizationDays: { type: Number, default: 0 },         // seller's days needed, copied from product at order time
 });
 
 const shippingAddressSchema = new mongoose.Schema({

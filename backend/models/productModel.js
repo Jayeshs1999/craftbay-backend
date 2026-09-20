@@ -52,6 +52,11 @@ const productSchema = new mongoose.Schema(
     tags:        [String],
     handmade:    { type: Boolean, default: true },   // always true for this platform
 
+    // Customization
+    isCustomizable:    { type: Boolean, default: false },
+    customizationDays: { type: Number, default: 0 },   // days seller needs to complete custom order
+    customizationNote: { type: String, default: "" },  // guidance for buyers (e.g. "Share name, color preference")
+
     // Delivery
     weight:        { type: Number },          // grams
     length:        { type: Number },          // cm
