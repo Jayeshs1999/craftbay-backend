@@ -512,6 +512,45 @@ export function sellerTipsEmail({ name, shopName }) {
   };
 }
 
+/**
+ * product_image_issue
+ * For: Sellers whose products have blurry, incorrect, misleading, or low-quality photos
+ * Goal: Politely request seller to delete wrong images, edit the product, and upload clear, proper photos
+ */
+export function sellerProductImageIssueEmail({ name, shopName, productName, productId, customNote }) {
+  const editUrl = productId ? `${FRONTEND}/seller/edit-product/${productId}` : `${FRONTEND}/seller`;
+  
+  return {
+    subject: `⚠️ Action Required: Please update product photos on ${shopName || "your Banavoo shop"} 📸`,
+    html: layout("Update Product Photos",
+      h2(`Important: Update photos for your product, ${name} 📸`) +
+      p(`We noticed that the images on your product${productName ? ` <strong>"${productName}"</strong>` : ""} may be unclear, blurry, or incorrectly uploaded.`) +
+      `<div style="background:#fffbeb;border:1px solid #fef3c7;border-left:4px solid #f59e0b;border-radius:8px;padding:16px 18px;margin:18px 0;">
+        <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#92400e;">⚠️ What you need to do:</p>
+        <ul style="margin:0;padding-left:20px;color:#78350f;font-size:13px;line-height:1.6;">
+          <li><strong>Delete the wrong / blurry photos</strong> from your product.</li>
+          <li><strong>Upload fresh, high-quality & clear photos</strong> showing the actual product in good lighting.</li>
+          <li><strong>Save / Update</strong> the product once done.</li>
+        </ul>
+      </div>` +
+      (customNote ?
+        `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;margin:16px 0;">
+          <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:0.05em;">Admin Note / Feedback:</p>
+          <p style="margin:0;font-size:13px;color:#1f2937;">${customNote}</p>
+        </div>` : ""
+      ) +
+      p(`<strong>Why clear photos matter:</strong> Buyers love seeing real, well-lit handmade products. Clear and accurate photos build trust and significantly increase your sales and conversions! 🌿`) +
+      divider() +
+      `<div style="text-align:center;margin:24px 0 12px;">` +
+      btn(productId ? "Edit Product & Update Photos" : "Go to Seller Dashboard", editUrl) +
+      `</div>` +
+      `<p style="margin:12px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
+        You can remove existing images anytime by clicking the ✕ delete icon on each photo in the edit screen.
+      </p>`
+    ),
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 10. ADMIN → BUYER OUTREACH EMAILS (sent from super-admin portal)
 //     Goal: tell buyers they can also become sellers on Banavoo.in

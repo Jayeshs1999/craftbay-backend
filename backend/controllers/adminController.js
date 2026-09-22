@@ -10,6 +10,7 @@ import {
   sellerKeepGoingEmail,
   sellerShareShopEmail,
   sellerTipsEmail,
+  sellerProductImageIssueEmail,
   buyerBecomeSellerIntroEmail,
   buyerBecomeSellerNudgeEmail,
   buyerSellerBenefitsEmail,
@@ -222,7 +223,7 @@ export const adminMailSellers = asyncHandler(async (req, res) => {
     res.status(400); throw new Error("mailType is required");
   }
 
-  const MAIL_TYPES = ["no_products", "one_product", "keep_going", "share_shop", "tips"];
+  const MAIL_TYPES = ["no_products", "one_product", "keep_going", "share_shop", "tips", "product_image_issue"];
   if (!MAIL_TYPES.includes(mailType)) {
     res.status(400); throw new Error(`Invalid mailType. Must be one of: ${MAIL_TYPES.join(", ")}`);
   }
@@ -232,11 +233,12 @@ export const adminMailSellers = asyncHandler(async (req, res) => {
     .lean();
 
   const templateFn = {
-    no_products:  sellerNoProductsEmail,
-    one_product:  sellerOneProductEmail,
-    keep_going:   sellerKeepGoingEmail,
-    share_shop:   sellerShareShopEmail,
-    tips:         sellerTipsEmail,
+    no_products:         sellerNoProductsEmail,
+    one_product:         sellerOneProductEmail,
+    keep_going:          sellerKeepGoingEmail,
+    share_shop:          sellerShareShopEmail,
+    tips:                sellerTipsEmail,
+    product_image_issue: (params) => sellerProductImageIssueEmail({ ...params, customNote }),
   }[mailType];
 
   const sent = [];
@@ -451,4 +453,84 @@ export const adminGetPayouts = asyncHandler(async (req, res) => {
   ]);
 
   res.json({ orders, page, pages: Math.ceil(total / limit), total });
+});
+
+// ─── GET /api/admin/products ──────────────────────────────────────────────
+// @desc  Admin: list products with seller info (for image inspection/moderation)
+// @route GET /api/admin/products?sellerId=&search=&page=&limit=
+// @access Private/Admin
+export const adminGetProducts = asyncHandler(async (req, res) => {
+  const page  = Number(req.query.page)  || 1;
+  const limit = Number(req.query.limit) || 20;
+  const filter = {};
+
+  if (req.query.sellerId) {
+    filter.seller = req.query.sellerId;
+  }
+
+  if (req.query.search) {
+    const term = req.query.search.trim();
+    if (term) {
+      const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [
+        { name: regex },
+        { category: regex },
+      ];
+    }
+  }
+
+  const [products, total] = await Promise.all([
+    Product.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate("seller", "name email sellerProfile"),
+    Product.countDocuments(filter),
+  ]);
+
+  res.json({ products, page, pages: Math.ceil(total / limit), total });
+});
+
+// ─── POST /api/admin/products/:id/notify-image-issue ──────────────────────
+// @desc  Admin: send product image correction request email to product seller
+// @route POST /api/admin/products/:id/notify-image-issue
+// @access Private/Admin
+export const adminNotifyProductImageIssue = asyncHandler(async (req, res) => {
+  const { note = "" } = req.body;
+
+  const product = await Product.findById(req.params.id)
+    .populate("seller", "name email sellerProfile");
+
+  if (!product) {
+    res.status(404);
+    throw new Error("Product not found");
+  }
+
+  const seller = product.seller;
+  if (!seller || !seller.email) {
+    res.status(400);
+    throw new Error("Product seller has no valid email address");
+  }
+
+  const shopName = seller.sellerProfile?.shopName || seller.name;
+  const { subject, html } = sellerProductImageIssueEmail({
+    name: seller.name,
+    shopName,
+    productName: product.name,
+    productId: product._id.toString(),
+    customNote: note,
+  });
+
+  await sendMail({ to: seller.email, subject, html });
+
+  res.json({
+    message: `Image issue notice sent to ${seller.name} (${seller.email})`,
+    seller: {
+      id: seller._id,
+      name: seller.name,
+      email: seller.email,
+    },
+    productId: product._id,
+    productName: product.name,
+  });
 });
