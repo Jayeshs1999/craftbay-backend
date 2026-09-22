@@ -8,6 +8,8 @@ const orderItemSchema = new mongoose.Schema({
   price:     { type: Number, required: true },
   quantity:  { type: Number, required: true },
   variant:   { type: String },             // e.g. "Color: Red, Size: M"
+  customizationRequirement: { type: String, default: "" }, // buyer's custom instructions for this item
+  customizationDays: { type: Number, default: 0 },         // seller's days needed, copied from product at order time
 });
 
 const shippingAddressSchema = new mongoose.Schema({
@@ -53,9 +55,13 @@ const orderSchema = new mongoose.Schema(
     // Payment
     paymentMethod:   { type: String, enum: ["razorpay", "cod"], default: "razorpay" },
     paymentStatus:   { type: String, enum: ["pending", "paid", "failed", "refunded"], default: "pending" },
-    razorpayOrderId: { type: String },
-    razorpayPaymentId:{ type: String },
-    paidAt:          { type: Date },
+    razorpayOrderId:   { type: String },
+    razorpayPaymentId: { type: String },
+    paidAt:            { type: Date },
+
+    // Seller payout (admin releases after delivery for online orders)
+    sellerPaid:        { type: Boolean, default: false },
+    sellerPaidAt:      { type: Date },
 
     // Order lifecycle
     orderStatus: {

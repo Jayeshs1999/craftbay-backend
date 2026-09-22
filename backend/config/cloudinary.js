@@ -2,22 +2,25 @@ import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import multer from "multer";
 
-// Configure cloudinary lazily so dotenv has time to load
-function getCloudinaryStorage() {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key:    process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
+// Configure cloudinary eagerly — dotenv must be loaded before this module is imported
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-  const hasCredentials = !!(
+function hasCredentials() {
+  return !!(
     process.env.CLOUDINARY_CLOUD_NAME &&
     process.env.CLOUDINARY_CLOUD_NAME !== "your_cloud_name" &&
     process.env.CLOUDINARY_API_KEY    &&
     process.env.CLOUDINARY_API_KEY    !== "your_api_key"
   );
+}
 
-  return { hasCredentials };
+// Keep lazy-init helper for multer (signature unchanged)
+function getCloudinaryStorage() {
+  return { hasCredentials: hasCredentials() };
 }
 
 // Build multer instances lazily on first use

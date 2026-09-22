@@ -13,6 +13,7 @@ import {
   buyerBecomeSellerIntroEmail,
   buyerBecomeSellerNudgeEmail,
   buyerSellerBenefitsEmail,
+  sellerPayoutReleasedEmail,
 } from "../utils/emailTemplates.js";
 
 // ─── GET /api/admin/orders ─────────────────────────────────────────────────
@@ -366,4 +367,88 @@ export const adminMailBuyers = asyncHandler(async (req, res) => {
   }
 
   res.json({ sent, failed, total: sent.length });
+});
+
+// ─── POST /api/admin/orders/:id/release-payout ────────────────────────────
+// @desc  Admin: mark seller payout as released after order is delivered
+// @route POST /api/admin/orders/:id/release-payout
+// @access Private/Admin
+export const adminReleasePayout = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.id)
+    .populate("buyer",        "name email")
+    .populate("items.seller", "name email sellerProfile");
+
+  if (!order) { res.status(404); throw new Error("Order not found"); }
+
+  if (order.orderStatus !== "delivered") {
+    res.status(400); throw new Error("Payout can only be released after order is delivered");
+  }
+
+  if (order.paymentMethod !== "razorpay") {
+    res.status(400); throw new Error("Payout release is only for online (Razorpay) orders");
+  }
+
+  if (order.sellerPaid) {
+    res.status(400); throw new Error("Payout has already been released for this order");
+  }
+
+  // Mark payout released
+  order.sellerPaid   = true;
+  order.sellerPaidAt = new Date();
+  order.statusHistory.push({
+    status:    "delivered",
+    note:      `Admin released seller payout — Rs.${order.itemsTotal} (items) to seller(s)`,
+    updatedBy: "admin",
+  });
+  await order.save();
+
+  // Notify each unique seller
+  const sellersSeen = new Set();
+  for (const item of order.items) {
+    const seller = item.seller;
+    if (!seller || sellersSeen.has(seller._id.toString())) continue;
+    sellersSeen.add(seller._id.toString());
+
+    if (seller.email) {
+      const shopName = seller.sellerProfile?.shopName || seller.name;
+      const { subject, html } = sellerPayoutReleasedEmail({
+        sellerName: seller.name,
+        shopName,
+        order: order.toObject(),
+        amount: order.itemsTotal,
+      });
+      sendMail({ to: seller.email, subject, html });
+    }
+  }
+
+  res.json({ message: "Payout released", order });
+});
+
+// ─── GET /api/admin/payouts ────────────────────────────────────────────────
+// @desc  Admin: list delivered Razorpay orders with payout status
+// @route GET /api/admin/payouts?paid=true|false&page=&limit=
+// @access Private/Admin
+export const adminGetPayouts = asyncHandler(async (req, res) => {
+  const page  = Number(req.query.page)  || 1;
+  const limit = Number(req.query.limit) || 20;
+
+  const filter = {
+    paymentMethod: "razorpay",
+    orderStatus:   "delivered",
+  };
+
+  if (req.query.paid === "true")  filter.sellerPaid = true;
+  if (req.query.paid === "false") filter.sellerPaid = { $ne: true };
+
+  const [orders, total] = await Promise.all([
+    Order.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate("buyer",        "name email phone")
+      .populate("items.seller", "name email sellerProfile"),
+    Order.countDocuments(filter),
+  ]);
+
+  res.json({ orders, page, pages: Math.ceil(total / limit), total });
 });
