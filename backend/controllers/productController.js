@@ -90,6 +90,18 @@ export const getProduct = asyncHandler(async (req, res) => {
   res.json(data);
 });
 
+// @desc  Get a single product for editing (ignores isActive; verifies ownership)
+// @route GET /api/products/:id/edit
+// @access Private/Seller
+export const getProductForEdit = asyncHandler(async (req, res) => {
+  const product = await Product.findById(req.params.id);
+  if (!product) { res.status(404); throw new Error("Product not found"); }
+  if (product.seller.toString() !== req.user._id.toString() && req.user.role !== "admin") {
+    res.status(403); throw new Error("Not authorized");
+  }
+  res.json(product);
+});
+
 // @desc  Get distinct categories
 // @route GET /api/products/categories
 // @access Public
@@ -215,10 +227,20 @@ export const deleteProduct = asyncHandler(async (req, res) => {
 export const deleteProductImage = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
   if (!product) { res.status(404); throw new Error("Product not found"); }
+  if (product.seller.toString() !== req.user._id.toString() && req.user.role !== "admin") {
+    res.status(403); throw new Error("Not authorized");
+  }
 
-  const pid = decodeURIComponent(req.params.publicId);
-  await cloudinary.uploader.destroy(pid);
-  product.images = product.images.filter((img) => img.publicId !== pid);
+  const { publicId } = req.body;
+  if (!publicId) { res.status(400); throw new Error("publicId is required"); }
+
+  try {
+    await cloudinary.uploader.destroy(publicId);
+  } catch (cloudErr) {
+    console.error("Cloudinary destroy failed:", cloudErr?.message || cloudErr);
+    // Still remove from DB even if Cloudinary fails (orphaned asset is preferable to stuck UI)
+  }
+  product.images = product.images.filter((img) => img.publicId !== publicId);
   await product.save();
   res.json(product.images);
 });
