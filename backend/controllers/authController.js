@@ -101,14 +101,34 @@ export const getMe = asyncHandler(async (req, res) => {
 // @route PUT /api/auth/become-seller
 // @access Private
 export const becomeSeller = asyncHandler(async (req, res) => {
-  const { shopName, shopDesc, shopCity, shopState, pickupPincode } = req.body;
-
-  if (!shopName || !shopCity || !shopState || !pickupPincode) {
-    res.status(400);
-    throw new Error("Shop name, city, state and pincode are required");
-  }
+  const { shopName, shopDesc, shopCity, shopState, pickupPincode, phone } = req.body;
 
   const user = await User.findById(req.user._id);
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+
+  const mobileNumber = String(phone || user.phone || "").trim();
+  if (!shopName || !shopCity || !shopState || !pickupPincode || !mobileNumber) {
+    res.status(400);
+    throw new Error("Shop name, city, state, pincode, and mobile number are required");
+  }
+
+  const cleanPhone = mobileNumber.replace(/\D/g, "");
+  if (cleanPhone.length !== 10) {
+    res.status(400);
+    throw new Error("Mobile number must be exactly 10 digits");
+  }
+
+  // Check if another user already has this phone number
+  const phoneExists = await User.findOne({ phone: cleanPhone, _id: { $ne: user._id } });
+  if (phoneExists) {
+    res.status(400);
+    throw new Error("Mobile number is already registered with another account");
+  }
+
+  user.phone    = cleanPhone;
   user.isSeller = true;
   user.role     = "seller";
   user.sellerProfile = { shopName, shopDesc, shopCity, shopState, pickupPincode };
