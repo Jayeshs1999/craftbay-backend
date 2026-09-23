@@ -12,6 +12,8 @@ import {
   adminMailBuyers,
   adminReleasePayout,
   adminGetPayouts,
+  adminGetProducts,
+  adminNotifyProductImageIssue,
 } from "../controllers/adminController.js";
 import { protect, requireAdmin } from "../middleware/authMiddleware.js";
 
@@ -32,5 +34,7 @@ router.get("/sellers",                        adminGetSellers);
 router.post("/mail-sellers",                  adminMailSellers);
 router.get("/buyers",                         adminGetBuyers);
 router.post("/mail-buyers",                   adminMailBuyers);
+router.get("/products",                       adminGetProducts);
+router.post("/products/:id/notify-image-issue", adminNotifyProductImageIssue);
 
 export default router;
