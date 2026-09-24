@@ -24,8 +24,9 @@ function getCloudinaryStorage() {
 }
 
 // Build multer instances lazily on first use
-let _productUpload = null;
-let _avatarUpload  = null;
+let _productUpload       = null;
+let _avatarUpload        = null;
+let _customRequestUpload = null;
 
 function getProductUpload() {
   if (_productUpload) return _productUpload;
@@ -74,6 +75,40 @@ export const uploadProductImages = (req, res, next) => {
       const msg = hasCredentials
         ? err.message
         : "Image upload skipped: add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET to your .env";
+      return next(new Error(msg));
+    }
+    if (!hasCredentials) req.files = [];
+    next();
+  });
+};
+
+function getCustomRequestUpload() {
+  if (_customRequestUpload) return _customRequestUpload;
+
+  const { hasCredentials } = getCloudinaryStorage();
+
+  const storage = hasCredentials
+    ? new CloudinaryStorage({
+        cloudinary,
+        params: {
+          folder:          "craftbay/custom-requests",
+          allowed_formats: ["jpg", "jpeg", "png", "webp"],
+          transformation:  [{ width: 1200, height: 1200, crop: "limit", quality: "auto" }],
+        },
+      })
+    : multer.memoryStorage();
+
+  _customRequestUpload = { upload: multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } }).array("images", 3), hasCredentials };
+  return _customRequestUpload;
+}
+
+export const uploadCustomRequestImages = (req, res, next) => {
+  const { upload, hasCredentials } = getCustomRequestUpload();
+  upload(req, res, (err) => {
+    if (err) {
+      const msg = hasCredentials
+        ? err.message
+        : "Image upload skipped: add CLOUDINARY credentials to your .env";
       return next(new Error(msg));
     }
     if (!hasCredentials) req.files = [];
