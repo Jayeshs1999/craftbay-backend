@@ -28,3 +28,15 @@ export const requireAdmin = asyncHandler(async (req, res, next) => {
   res.status(403);
   throw new Error("Admin access required");
 });
+
+/** Silently attaches req.user if a valid token is present; never blocks the request. */
+export const optionalAuth = asyncHandler(async (req, res, next) => {
+  const token = req.cookies.jwt || req.header("Authorization")?.replace("Bearer ", "");
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = await User.findById(decoded.userId).select("-password");
+    } catch { /* ignore invalid token */ }
+  }
+  next();
+});
