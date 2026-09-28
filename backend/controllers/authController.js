@@ -371,6 +371,20 @@ export const sendResetOtp = asyncHandler(async (req, res) => {
   res.json({ message: "If that email is registered, a reset code has been sent." });
 });
 
+// @desc  Delete own account and all associated data
+// @route DELETE /api/auth/account
+// @access Private
+export const deleteAccount = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) { res.status(404); throw new Error("User not found"); }
+
+  await User.findByIdAndDelete(req.user._id);
+
+  // Clear auth cookie
+  res.cookie("jwt", "", { httpOnly: true, expires: new Date(0) });
+  res.json({ message: "Account deleted successfully" });
+});
+
 // @desc  Reset password — verify OTP and set new password
 // @route POST /api/auth/reset-password
 // @access Public

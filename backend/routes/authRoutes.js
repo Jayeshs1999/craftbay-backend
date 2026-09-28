@@ -4,7 +4,7 @@ import {
   registerUser, loginUser, logoutUser, getMe,
   becomeSeller, updateProfile, addAddress, deleteAddress,
   verifyToken, sendOtp, verifyOtp,
-  sendResetOtp, resetPassword,
+  sendResetOtp, resetPassword, deleteAccount,
 } from "../controllers/authController.js";
 import { googleCallback } from "../controllers/googleAuthController.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -24,6 +24,7 @@ router.put("/become-seller",    protect, becomeSeller);
 router.put("/profile",          protect, updateProfile);
 router.post("/address",         protect, addAddress);
 router.delete("/address/:id",   protect, deleteAddress);
+router.delete("/account",       protect, deleteAccount);
 
 // Guard: return 503 when Google credentials are not configured
 function requireGoogleConfig(req, res, next) {
