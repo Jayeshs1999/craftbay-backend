@@ -20,7 +20,8 @@ const { default: orderRoutes }    = await import("./routes/orderRoutes.js");
 const { default: deliveryRoutes } = await import("./routes/deliveryRoutes.js");
 const { default: wishlistRoutes } = await import("./routes/wishlistRoutes.js");
 const { default: adminRoutes }    = await import("./routes/adminRoutes.js");
-const { default: sellerRoutes }   = await import("./routes/sellerRoutes.js");
+const { default: sellerRoutes }        = await import("./routes/sellerRoutes.js");
+const { default: customRequestRoutes } = await import("./routes/customRequestRoutes.js");
 
 const port = process.env.PORT || 5000;
 
@@ -50,7 +51,8 @@ app.use("/api/orders",   orderRoutes);
 app.use("/api/delivery", deliveryRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/admin",    adminRoutes);
-app.use("/api/sellers",  sellerRoutes);
+app.use("/api/sellers",         sellerRoutes);
+app.use("/api/custom-requests", customRequestRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

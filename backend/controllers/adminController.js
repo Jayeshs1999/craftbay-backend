@@ -162,8 +162,17 @@ export const adminGetUsers = asyncHandler(async (req, res) => {
   const page  = Number(req.query.page)  || 1;
   const limit = Number(req.query.limit) || 30;
   const filter = {};
-  if (req.query.role === "seller") filter.isSeller = true;
-  if (req.query.role === "buyer")  { filter.isSeller = false; filter.role = "buyer"; }
+
+  // Support both legacy ?role= and new ?type= param
+  const type = req.query.type || req.query.role;
+  if (type === "sellers") filter.isSeller = true;
+  if (type === "buyers")  { filter.isSeller = false; filter.role = { $ne: "admin" }; }
+
+  // Text search across name, email, phone
+  if (req.query.search) {
+    const re = new RegExp(req.query.search, "i");
+    filter.$or = [{ name: re }, { email: re }, { phone: re }];
+  }
 
   const [users, total] = await Promise.all([
     User.find(filter)
