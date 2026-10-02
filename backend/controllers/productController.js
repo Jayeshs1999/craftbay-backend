@@ -81,11 +81,12 @@ export const getProduct = asyncHandler(async (req, res) => {
 
   if (!product) { res.status(404); throw new Error("Product not found"); }
 
-  // Normalize customization fields — older docs pre-date these fields and have undefined values
+  // Normalize fields — older docs pre-date these fields and have undefined values
   const data = product.toObject();
   if (!data.isCustomizable)    data.isCustomizable    = false;
   if (!data.customizationDays) data.customizationDays = 0;
   if (!data.customizationNote) data.customizationNote = "";
+  if (data.instagramUrl === undefined) data.instagramUrl = "";
 
   res.json(data);
 });
@@ -143,6 +144,7 @@ export const createProduct = asyncHandler(async (req, res) => {
     stock, sku, category, subCategory, tags, variants,
     weight, length, width, height, freeShipping, shippingCharge,
     isCustomizable, customizationDays, customizationNote,
+    instagramUrl,
   } = req.body;
 
   // Uploaded files come from multer-cloudinary
@@ -169,6 +171,7 @@ export const createProduct = asyncHandler(async (req, res) => {
     isCustomizable: isCustomizable === "true" || isCustomizable === true,
     customizationDays: customizationDays ? Number(customizationDays) : 0,
     customizationNote: customizationNote || "",
+    instagramUrl: instagramUrl || "",
   });
 
   res.status(201).json(product);
@@ -189,6 +192,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
     "category","subCategory","tags","weight","length","width","height",
     "freeShipping","shippingCharge","isActive",
     "isCustomizable","customizationDays","customizationNote",
+    "instagramUrl",
   ];
   allowed.forEach((key) => {
     if (req.body[key] !== undefined) product[key] = req.body[key];
@@ -259,12 +263,13 @@ export const getMyProducts = asyncHandler(async (req, res) => {
     Product.countDocuments(filter),
   ]);
 
-  // Normalize customization fields for older documents
+  // Normalize fields for older documents
   const products = docs.map((p) => {
     const d = p.toObject();
     if (!d.isCustomizable)    d.isCustomizable    = false;
     if (!d.customizationDays) d.customizationDays = 0;
     if (!d.customizationNote) d.customizationNote = "";
+    if (d.instagramUrl === undefined) d.instagramUrl = "";
     return d;
   });
 

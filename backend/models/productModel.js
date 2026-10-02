@@ -65,6 +65,9 @@ const productSchema = new mongoose.Schema(
     freeShipping:  { type: Boolean, default: false },
     shippingCharge:{ type: Number, default: 0 }, // platform-calculates if 0
 
+    // Social
+    instagramUrl: { type: String, default: "" },    // Instagram post/reel URL to embed
+
     // Ratings
     reviews:     [reviewSchema],
     rating:      { type: Number, default: 0 },

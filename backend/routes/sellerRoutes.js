@@ -128,32 +128,36 @@ router.get(
       filter["sellerProfile.shopState"] = req.query.state;
     }
 
+    // Sellers who actually have at least one active product — used for accurate total + pages
+    const sellerIdsWithProducts = await Product.distinct("seller", { isActive: true, isApproved: true });
+
+    // Intersect with the user filter to get a true total count
+    const totalFilter = { ...filter, _id: { $in: sellerIdsWithProducts } };
     const [sellers, total] = await Promise.all([
-      User.find(filter)
+      User.find(totalFilter)
         .select("name sellerProfile")
-        .sort({ "sellerProfile.totalSales": -1, createdAt: -1 })
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      User.countDocuments(filter),
+      User.countDocuments(totalFilter),
     ]);
 
-    // For each seller fetch product count + up to 4 preview images
+    // For each seller fetch product count + up to 4 preview images in one query each
     const enriched = await Promise.all(
       sellers.map(async (seller) => {
-        const products = await Product.find({ seller: seller._id, isActive: true, isApproved: true })
-          .select("images name price")
-          .sort({ createdAt: -1 })
-          .limit(4)
-          .lean();
-
-        const productCount = await Product.countDocuments({
-          seller: seller._id, isActive: true, isApproved: true,
-        });
+        const [products, productCount] = await Promise.all([
+          Product.find({ seller: seller._id, isActive: true, isApproved: true })
+            .select("images name price")
+            .sort({ createdAt: -1 })
+            .limit(4)
+            .lean(),
+          Product.countDocuments({ seller: seller._id, isActive: true, isApproved: true }),
+        ]);
 
         return {
-          _id:          seller._id,
-          name:         seller.name,
+          _id:           seller._id,
+          name:          seller.name,
           sellerProfile: seller.sellerProfile,
           productCount,
           previewImages: products.flatMap((p) =>
@@ -166,14 +170,14 @@ router.get(
       })
     );
 
-    // Only return sellers who have at least one product
-    const withProducts = enriched.filter((s) => s.productCount > 0);
+    // Sort by product count descending within this page
+    const sorted = enriched.sort((a, b) => b.productCount - a.productCount);
 
     res.json({
-      sellers: withProducts,
+      sellers: sorted,
       page,
       pages: Math.ceil(total / limit),
-      total: withProducts.length,
+      total,                          // true total across all pages
     });
   })
 );
