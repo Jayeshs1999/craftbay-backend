@@ -40,29 +40,28 @@ export const getProducts = asyncHandler(async (req, res) => {
   if (req.query.featured === "true") filter.isFeatured = true;
 
   const sortMap = {
-    newest:    { createdAt: -1 },
-    oldest:    { createdAt:  1 },
+    newest:       { createdAt: -1 },
+    oldest:       { createdAt:  1 },
     "price-asc":  { price:  1 },
     "price-desc": { price: -1 },
-    rating:    { rating: -1 },
-    popular:   { numReviews: -1 },
+    rating:       { rating: -1 },
+    popular:      { numReviews: -1 },
   };
-  const sort = sortMap[req.query.sort] || { createdAt: -1 };
 
-  const [products, total] = await Promise.all([
-    Product.find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .select("-reviews")
-      .populate("seller", "name sellerProfile.shopName sellerProfile.rating"),
-    Product.countDocuments(filter),
-  ]);
+  const total = await Product.countDocuments(filter);
+
+  const sort = sortMap[req.query.sort] || { createdAt: -1 };
+  const products = await Product.find(filter)
+    .sort(sort)
+    .skip(skip)
+    .limit(limit)
+    .select("-reviews")
+    .populate("seller", "name sellerProfile.shopName sellerProfile.rating");
 
   res.json({
     products,
     page,
-    pages:  Math.ceil(total / limit),
+    pages: Math.ceil(total / limit),
     total,
   });
 });
