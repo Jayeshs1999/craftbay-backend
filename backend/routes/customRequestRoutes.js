@@ -33,8 +33,8 @@ async function notifySellersNewRequest(creq, buyerName) {
   for (const seller of sellers) {
     const html = customRequestPostedToSeller({ seller, creq, buyerName });
     await sendMail({
-      to: TEST_EMAIL,   // ← uncomment for demo/testing
-      // to:  seller.email,   // ← actual seller email
+      // to: TEST_EMAIL,   // ← uncomment for demo/testing
+      to:  seller.email,   // ← actual seller email
       subject: `🛠️ New Custom Order Request: "${creq.title}" — Banavoo`,
       html,
     });
@@ -187,8 +187,8 @@ router.put(
       const creqWithPrice = { ...creq.toObject(), _bidPrice: bid.price };
       const html = requestCancelledToSeller({ seller, creq: creqWithPrice });
       sendMail({
-        to:      TEST_EMAIL,   // ← uncomment for demo/testing
-        // to: seller.email,   // ← actual seller email
+        // to:      TEST_EMAIL,   // ← uncomment for demo/testing
+        to: seller.email,   // ← actual seller email
         subject: `❌ Custom request "${creq.title}" has been cancelled`,
         html,
       }).catch((e) => console.error("[customRequest] cancel notify error:", e));
@@ -261,8 +261,8 @@ router.put(
     const buyer          = req.user;
     const html           = bidAcceptedToSeller({ seller: acceptedSeller, creq, bid, buyer });
     await sendMail({
-      to: TEST_EMAIL,           // ← uncomment for demo/testing
-      // to:  acceptedSeller.email,   // ← actual seller email
+      // to: TEST_EMAIL,           // ← uncomment for demo/testing
+      to:  acceptedSeller.email,   // ← actual seller email
       subject: `🎉 Your bid was accepted — "${creq.title}" on Banavoo`,
       html,
     });
@@ -276,8 +276,8 @@ router.put(
       if (!rSeller?.email) continue;
       const rHtml = requestClosedToOtherSellers({ seller: rSeller, creq });
       await sendMail({
-        to: TEST_EMAIL,   // ← uncomment for demo/testing
-        // to:  rSeller.email,  // ← actual seller email
+        // to: TEST_EMAIL,   // ← uncomment for demo/testing
+        to:  rSeller.email,  // ← actual seller email
         subject: `Custom request "${creq.title}" has been closed`,
         html:    rHtml,
       });
@@ -378,8 +378,8 @@ router.post(
     const seller = req.user;
     const html   = newBidReceivedToBuyer({ buyer, creq, bid: creq.bids[creq.bids.length - 1], seller });
     await sendMail({
-      to: TEST_EMAIL,  // ← uncomment for demo/testing
-      // to:  buyer.email,   // ← actual buyer email
+      // to: TEST_EMAIL,  // ← uncomment for demo/testing
+      to:  buyer.email,   // ← actual buyer email
       subject: `💬 New bid on your request "${creq.title}" — Banavoo`,
       html,
     });
@@ -468,8 +468,8 @@ router.delete(
         const creqWithPrice = { ...creq.toObject(), _bidPrice: bid.price };
         const html = requestCancelledToSeller({ seller, creq: creqWithPrice });
         sendMail({
-          to: TEST_EMAIL,   // ← testing mode
-          // to: seller.email,
+          // to: TEST_EMAIL,   // ← testing mode
+          to: seller.email,
           subject: `❌ Custom request "${creq.title}" has been cancelled`,
           html,
         }).catch((e) => console.error("[adminCancelRequest] notify error:", e));
