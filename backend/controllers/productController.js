@@ -209,7 +209,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
   res.json(updated);
 });
 
-// @desc  Delete own product (soft delete)
+// @desc  Delete own product (hard delete)
 // @route DELETE /api/products/:id
 // @access Private/Seller
 export const deleteProduct = asyncHandler(async (req, res) => {
@@ -219,9 +219,19 @@ export const deleteProduct = asyncHandler(async (req, res) => {
     res.status(403); throw new Error("Not authorized");
   }
 
-  product.isActive = false;
-  await product.save();
-  res.json({ message: "Product removed" });
+  // Delete all Cloudinary images before removing the document
+  for (const img of product.images) {
+    if (img.publicId) {
+      try {
+        await cloudinary.uploader.destroy(img.publicId);
+      } catch (e) {
+        console.error("[deleteProduct] cloudinary destroy failed:", img.publicId, e?.message);
+      }
+    }
+  }
+
+  await product.deleteOne();
+  res.json({ message: "Product deleted" });
 });
 
 // @desc  Delete a product image
